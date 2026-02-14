@@ -997,7 +997,7 @@ class TesseractProvider:
 # ==================== AUTH ROUTES ====================
 
 @auth_router.post("/register", response_model=TokenResponse)
-async def register(user_data: UserCreate):
+async def register(user_data: UserCreate, background_tasks: BackgroundTasks):
     existing = await db.users.find_one({"email": user_data.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -1023,6 +1023,9 @@ async def register(user_data: UserCreate):
         entity_id=user_id,
         details={"email": user_data.email, "role": user_data.role}
     )
+    
+    # Send welcome email (mocked)
+    background_tasks.add_task(MockEmailService.send_welcome_email, user_data.email, user_data.name)
     
     return TokenResponse(
         access_token=token,
