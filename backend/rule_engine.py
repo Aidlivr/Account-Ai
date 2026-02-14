@@ -125,7 +125,8 @@ ACCOUNT_CATEGORY_KEYWORDS: Dict[AccountCategory, List[str]] = {
     AccountCategory.EDUCATION: [
         "kursus", "course", "uddannelse", "training", "seminar",
         "konference", "conference", "workshop", "certificering",
-        "faglitteratur", "bøger", "e-learning"
+        "faglitteratur", "bøger", "e-learning", "kursusgebyr",
+        "kursusmaterialer", "projektledelse", "kursuslex"
     ],
     AccountCategory.POSTAL: [
         "porto", "postage", "forsendelse", "shipping", "fragt", "freight",
