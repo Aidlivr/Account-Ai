@@ -108,7 +108,7 @@ class ProductionAIService:
             vendor_name = raw_result.get("vendor_name")
             vendor_history = await self._get_vendor_history(tenant_id, vendor_name)
             
-            # 5. Apply post-processing rules
+            # 5. Apply post-processing rules (AI-based)
             processed = await self._apply_post_processing(
                 raw_result, 
                 tenant_id, 
@@ -116,7 +116,11 @@ class ProductionAIService:
                 ocr_text
             )
             
-            # 6. Calculate final confidence
+            # 6. Apply deterministic rule engine (keyword-based improvements)
+            company_config = await self._get_company_rule_config(tenant_id)
+            processed = apply_deterministic_rules(processed, ocr_text, company_config)
+            
+            # 7. Calculate final confidence
             processed["confidence_score"] = self._calculate_adjusted_confidence(
                 processed.get("confidence_score", 0.5),
                 vendor_history
@@ -126,6 +130,7 @@ class ProductionAIService:
                 "success": True,
                 "data": processed,
                 "vendor_override_applied": processed.get("_vendor_override", False),
+                "rules_applied": processed.get("_rules_applied", []),
                 "validation_passed": True,
                 "extraction_timestamp": datetime.now(timezone.utc).isoformat()
             }
