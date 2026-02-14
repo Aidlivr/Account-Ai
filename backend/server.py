@@ -2890,6 +2890,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
+    global production_ai_service, ai_analytics_service, active_company_service
+    
+    # Initialize production AI service
+    production_ai_service = ProductionAIService(db, EMERGENT_LLM_KEY)
+    ai_analytics_service = AIAnalyticsService(db)
+    active_company_service = ActiveCompanyService(db)
+    
+    logger.info("Production AI services initialized")
+    logger.info(f"Active VAT country: {VATRuleFactory._active_country}")
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
