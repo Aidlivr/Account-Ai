@@ -162,7 +162,8 @@ ACCOUNT_CATEGORY_KEYWORDS: Dict[AccountCategory, List[str]] = {
     ],
     AccountCategory.PERSONNEL: [
         "personale", "staff", "medarbejder", "employee", "kantine",
-        "frugtordning", "kaffe", "firmafest", "julegave"
+        "frugtordning", "kaffe", "firmafest", "julegave",
+        "kaffe stor", "croissant", "morgenmad", "frokost til medarbejder"
     ],
     AccountCategory.PREPAYMENT: [
         "forudbetaling", "prepayment", "deposit", "depositum", "aconto",
