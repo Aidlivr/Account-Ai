@@ -1,104 +1,103 @@
 {
   "summary": {
     "total_invoices": 50,
-    "processed_successfully": 50,
-    "failed_processing": 0,
-    "success_rate_percent": 100.0,
-    "overall_field_accuracy_percent": 94.82,
+    "processed_successfully": 49,
+    "failed_processing": 1,
+    "success_rate_percent": 98.0,
+    "overall_field_accuracy_percent": 97.44,
     "critical_field_accuracy_percent": 100.0,
-    "needs_review_count": 6,
-    "needs_review_percent": 12.0
+    "needs_review_count": 5,
+    "needs_review_percent": 10.0
   },
   "field_level_accuracy": {
     "vendor_name": {
       "accuracy_percent": 100.0,
-      "correct": 50,
+      "correct": 49,
       "incorrect": 0,
       "missing": 0
     },
     "cvr_number": {
-      "accuracy_percent": 93.88,
+      "accuracy_percent": 95.83,
       "correct": 46,
-      "incorrect": 3,
+      "incorrect": 2,
       "missing": 1
     },
     "invoice_number": {
       "accuracy_percent": 100.0,
-      "correct": 50,
+      "correct": 49,
       "incorrect": 0,
       "missing": 0
     },
     "invoice_date": {
       "accuracy_percent": 100.0,
-      "correct": 50,
+      "correct": 49,
       "incorrect": 0,
       "missing": 0
     },
     "due_date": {
       "accuracy_percent": 100.0,
-      "correct": 50,
+      "correct": 49,
       "incorrect": 0,
       "missing": 0
     },
     "currency": {
-      "accuracy_percent": 92.0,
-      "correct": 46,
-      "incorrect": 4,
+      "accuracy_percent": 100.0,
+      "correct": 49,
+      "incorrect": 0,
       "missing": 0
     },
     "net_amount": {
       "accuracy_percent": 100.0,
-      "correct": 50,
+      "correct": 49,
       "incorrect": 0,
       "missing": 0
     },
     "vat_amount": {
       "accuracy_percent": 100.0,
-      "correct": 50,
+      "correct": 49,
       "incorrect": 0,
       "missing": 0
     },
     "total_amount": {
       "accuracy_percent": 100.0,
-      "correct": 50,
+      "correct": 49,
       "incorrect": 0,
       "missing": 0
     },
     "vat_code": {
-      "accuracy_percent": 90.0,
-      "correct": 45,
-      "incorrect": 5,
+      "accuracy_percent": 100.0,
+      "correct": 49,
+      "incorrect": 0,
       "missing": 0
     },
     "suggested_account": {
-      "accuracy_percent": 70.0,
-      "correct": 35,
-      "incorrect": 15,
+      "accuracy_percent": 75.51,
+      "correct": 37,
+      "incorrect": 12,
       "missing": 0
     },
     "journal": {
-      "accuracy_percent": 92.0,
-      "correct": 46,
-      "incorrect": 4,
+      "accuracy_percent": 97.96,
+      "correct": 48,
+      "incorrect": 1,
       "missing": 0
     }
   },
   "error_counts": {
-    "critical": 0,
-    "major": 23,
-    "minor": 8,
-    "total": 31
+    "critical": 1,
+    "major": 14,
+    "minor": 1,
+    "total": 16
   },
   "error_details": {
-    "critical": [],
-    "major": [
+    "critical": [
       {
-        "invoice_id": "INV-008",
-        "field": "vat_code",
-        "expected": "MOMSFRI",
-        "actual": "I0",
-        "message": "Expected 'MOMSFRI', got 'I0'"
-      },
+        "invoice_id": "INV-043",
+        "error": "AI extraction failed",
+        "category": "edge_case"
+      }
+    ],
+    "major": [
       {
         "invoice_id": "INV-009",
         "field": "suggested_account",
@@ -107,11 +106,11 @@
         "message": "Expected '6010', got '6000'"
       },
       {
-        "invoice_id": "INV-013",
-        "field": "vat_code",
-        "expected": "MOMSFRI",
-        "actual": "I0",
-        "message": "Expected 'MOMSFRI', got 'I0'"
+        "invoice_id": "INV-015",
+        "field": "suggested_account",
+        "expected": "7100",
+        "actual": "4000",
+        "message": "Expected '7100', got '4000'"
       },
       {
         "invoice_id": "INV-019",
@@ -121,39 +120,11 @@
         "message": "Expected '6320', got '6310'"
       },
       {
-        "invoice_id": "INV-022",
-        "field": "vat_code",
-        "expected": "MOMSFRI",
-        "actual": "I0",
-        "message": "Expected 'MOMSFRI', got 'I0'"
-      },
-      {
-        "invoice_id": "INV-024",
-        "field": "suggested_account",
-        "expected": "1500",
-        "actual": "6100",
-        "message": "Expected '1500', got '6100'"
-      },
-      {
-        "invoice_id": "INV-026",
-        "field": "cvr_number",
-        "expected": "DE143464973",
-        "actual": "",
-        "message": "Expected CVR 'DE143464973', got ''"
-      },
-      {
         "invoice_id": "INV-027",
         "field": "cvr_number",
         "expected": "DE146151045",
         "actual": "",
         "message": "Expected CVR 'DE146151045', got ''"
-      },
-      {
-        "invoice_id": "INV-027",
-        "field": "vat_code",
-        "expected": "IEU",
-        "actual": "IREV",
-        "message": "Expected 'IEU', got 'IREV'"
       },
       {
         "invoice_id": "INV-027",
@@ -184,25 +155,11 @@
         "message": "Expected CVR '91-1646860', got ''"
       },
       {
-        "invoice_id": "INV-037",
+        "invoice_id": "INV-035",
         "field": "suggested_account",
-        "expected": "1200",
-        "actual": "6900",
-        "message": "Expected '1200', got '6900'"
-      },
-      {
-        "invoice_id": "INV-039",
-        "field": "vat_code",
-        "expected": "IKKEMOMS",
-        "actual": "I0",
-        "message": "Expected 'IKKEMOMS', got 'I0'"
-      },
-      {
-        "invoice_id": "INV-039",
-        "field": "suggested_account",
-        "expected": "2610",
-        "actual": "5000",
-        "message": "Expected '2610', got '5000'"
+        "expected": "6200",
+        "actual": "6020",
+        "message": "Expected '6200', got '6020'"
       },
       {
         "invoice_id": "INV-040",
@@ -219,99 +176,47 @@
         "message": "Expected '5300', got '4000'"
       },
       {
-        "invoice_id": "INV-043",
-        "field": "suggested_account",
-        "expected": "4000",
-        "actual": "6100",
-        "message": "Expected '4000', got '6100'"
-      },
-      {
         "invoice_id": "INV-044",
         "field": "suggested_account",
         "expected": "6200",
         "actual": "7500",
         "message": "Expected '6200', got '7500'"
+      },
+      {
+        "invoice_id": "INV-047",
+        "field": "suggested_account",
+        "expected": "7500",
+        "actual": "7300",
+        "message": "Expected '7500', got '7300'"
+      },
+      {
+        "invoice_id": "INV-049",
+        "field": "suggested_account",
+        "expected": "6310",
+        "actual": "6320",
+        "message": "Expected '6310', got '6320'"
       }
     ],
     "minor": [
       {
-        "invoice_id": "INV-021",
+        "invoice_id": "INV-041",
         "field": "journal",
-        "expected": "KASSE",
-        "actual": "KOB",
-        "message": "Expected 'KASSE', got 'KOB'"
-      },
-      {
-        "invoice_id": "INV-022",
-        "field": "journal",
-        "expected": "BANK",
-        "actual": "KOB",
-        "message": "Expected 'BANK', got 'KOB'"
-      },
-      {
-        "invoice_id": "INV-026",
-        "field": "currency",
-        "expected": "EUR",
-        "actual": "DKK",
-        "message": "Expected 'EUR', got 'DKK'"
-      },
-      {
-        "invoice_id": "INV-027",
-        "field": "currency",
-        "expected": "EUR",
-        "actual": "DKK",
-        "message": "Expected 'EUR', got 'DKK'"
-      },
-      {
-        "invoice_id": "INV-030",
-        "field": "journal",
-        "expected": "KASSE",
-        "actual": "KOB",
-        "message": "Expected 'KASSE', got 'KOB'"
-      },
-      {
-        "invoice_id": "INV-032",
-        "field": "currency",
-        "expected": "USD",
-        "actual": "DKK",
-        "message": "Expected 'USD', got 'DKK'"
-      },
-      {
-        "invoice_id": "INV-034",
-        "field": "currency",
-        "expected": "SEK",
-        "actual": "DKK",
-        "message": "Expected 'SEK', got 'DKK'"
-      },
-      {
-        "invoice_id": "INV-050",
-        "field": "journal",
-        "expected": "KASSE",
-        "actual": "KOB",
-        "message": "Expected 'KASSE', got 'KOB'"
+        "expected": "KOB",
+        "actual": "KASSE",
+        "message": "Expected 'KOB', got 'KASSE'"
       }
     ]
   },
-  "vat_confusion_matrix": {
-    "MOMSFRI": {
-      "I0": 3
-    },
-    "IEU": {
-      "IREV": 1
-    },
-    "IKKEMOMS": {
-      "I0": 1
-    }
-  },
+  "vat_confusion_matrix": {},
   "account_confusion_matrix": {
     "6010": {
       "6000": 1
     },
+    "7100": {
+      "4000": 1
+    },
     "6320": {
       "6310": 1
-    },
-    "1500": {
-      "6100": 1
     },
     "4100": {
       "6310": 1
@@ -323,70 +228,59 @@
     "1520": {
       "6700": 1
     },
-    "1200": {
-      "6900": 1
-    },
-    "2610": {
-      "5000": 1
+    "6200": {
+      "6020": 1,
+      "7500": 1
     },
     "1510": {
       "6310": 1
     },
-    "4000": {
-      "6100": 1
-    },
-    "6200": {
-      "7500": 1
-    },
-    "8400": {
-      "7500": 1
-    },
     "7500": {
-      "7200": 1
+      "7300": 1
     },
     "6310": {
-      "7300": 1
+      "6320": 1
     }
   },
   "top_10_vendors_with_corrections": [
     {
       "vendor": "Bechtle AG",
-      "correction_count": 4
-    },
-    {
-      "vendor": "Danske Bank A/S",
       "correction_count": 2
     },
     {
-      "vendor": "SAP SE",
+      "vendor": "Metro Cash & Carry Danmark A/S",
       "correction_count": 2
-    },
-    {
-      "vendor": "7-Eleven Danmark A/S",
-      "correction_count": 2
-    },
-    {
-      "vendor": "Amazon Web Services, Inc.",
-      "correction_count": 2
-    },
-    {
-      "vendor": "SKAT",
-      "correction_count": 2
-    },
-    {
-      "vendor": "Tryg Forsikring A/S",
-      "correction_count": 1
     },
     {
       "vendor": "Jeudan A/S",
       "correction_count": 1
     },
     {
-      "vendor": "SAS Scandinavian Airlines",
+      "vendor": "Kursuslex ApS",
       "correction_count": 1
     },
     {
       "vendor": "one.com Group AB",
+      "correction_count": 1
+    },
+    {
+      "vendor": "7-Eleven Danmark A/S",
+      "correction_count": 1
+    },
+    {
+      "vendor": "Mercedes-Benz Danmark A/S",
+      "correction_count": 1
+    },
+    {
+      "vendor": "Amazon Web Services, Inc.",
+      "correction_count": 1
+    },
+    {
+      "vendor": "Hans Petersens VVS",
+      "correction_count": 1
+    },
+    {
+      "vendor": "Dell Technologies Denmark ApS",
       "correction_count": 1
     }
   ],
@@ -394,7 +288,7 @@
     {
       "invoice_id": "INV-026",
       "category": "edge_case",
-      "errors": 2
+      "errors": 0
     },
     {
       "invoice_id": "INV-031",
@@ -404,12 +298,7 @@
     {
       "invoice_id": "INV-037",
       "category": "edge_case",
-      "errors": 1
-    },
-    {
-      "invoice_id": "INV-039",
-      "category": "edge_case",
-      "errors": 2
+      "errors": 0
     },
     {
       "invoice_id": "INV-044",
@@ -419,23 +308,23 @@
     {
       "invoice_id": "INV-045",
       "category": "edge_case",
-      "errors": 1
+      "errors": 0
     }
   ],
   "by_category": {
     "realistic": {
       "count": 25,
-      "field_accuracy_percent": 97.33,
-      "errors_total": 8,
+      "field_accuracy_percent": 99.0,
+      "errors_total": 3,
       "needs_review": 0
     },
     "edge_case": {
-      "count": 25,
-      "field_accuracy_percent": 92.31,
-      "errors_total": 23,
-      "needs_review": 6
+      "count": 24,
+      "field_accuracy_percent": 95.82,
+      "errors_total": 12,
+      "needs_review": 5
     }
   },
-  "timestamp": "2026-02-14T23:41:35.430624+00:00",
+  "timestamp": "2026-02-14T23:54:27.169657+00:00",
   "version": "1.0"
 }
