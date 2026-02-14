@@ -129,10 +129,13 @@ export default function VouchersPage() {
                         Draft vouchers for {currentTenant.name}
                     </p>
                 </div>
-                <Button onClick={() => navigate('/documents')} data-testid="go-to-documents">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Process More Invoices
-                </Button>
+                <div className="flex items-center gap-2">
+                    <ExportButton tenantId={currentTenant.id} type="vouchers" />
+                    <Button onClick={() => navigate('/documents')} data-testid="go-to-documents">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Process More Invoices
+                    </Button>
+                </div>
             </div>
 
             {/* Stats */}
