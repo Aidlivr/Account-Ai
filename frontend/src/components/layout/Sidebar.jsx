@@ -29,8 +29,10 @@ const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/companies', icon: Building2, label: 'Companies' },
     { to: '/documents', icon: FileText, label: 'Documents' },
+    { to: '/vouchers', icon: FileText, label: 'Vouchers' },
     { to: '/reconciliation', icon: ArrowLeftRight, label: 'Reconciliation' },
     { to: '/vat', icon: Calculator, label: 'VAT Analysis' },
+    { to: '/activity', icon: Users, label: 'Activity Log' },
     { to: '/billing', icon: CreditCard, label: 'Billing' },
 ];
 
