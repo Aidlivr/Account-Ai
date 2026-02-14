@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Form, status, BackgroundTasks
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Form, status, BackgroundTasks, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -7,7 +7,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 import uuid
 from datetime import datetime, timezone, timedelta
 import jwt
@@ -17,6 +17,8 @@ import json
 import stripe
 import base64
 from io import BytesIO
+from cryptography.fernet import Fernet
+import hashlib
 
 # Import AI integration
 from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -40,18 +42,24 @@ stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', '')
 # Emergent LLM Key
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 
+# Encryption key for sensitive data
+ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY', Fernet.generate_key().decode())
+
 # Create the main app
-app = FastAPI(title="AI Accounting Copilot", version="1.0.0")
+app = FastAPI(title="AI Accounting Copilot", version="2.0.0-beta")
 
 # Create routers
 api_router = APIRouter(prefix="/api")
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 tenant_router = APIRouter(prefix="/tenants", tags=["Tenants"])
 document_router = APIRouter(prefix="/documents", tags=["Documents"])
+voucher_router = APIRouter(prefix="/vouchers", tags=["Vouchers"])
 reconciliation_router = APIRouter(prefix="/reconciliation", tags=["Reconciliation"])
 vat_router = APIRouter(prefix="/vat", tags=["VAT"])
 billing_router = APIRouter(prefix="/billing", tags=["Billing"])
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])
+activity_router = APIRouter(prefix="/activity", tags=["Activity"])
+vendor_router = APIRouter(prefix="/vendors", tags=["Vendors"])
 
 security = HTTPBearer()
 
@@ -59,12 +67,49 @@ security = HTTPBearer()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# ==================== MODELS ====================
+# ==================== CONSTANTS ====================
 
 class UserRole:
     SME_USER = "sme_user"
     ACCOUNTANT = "accountant"
     ADMIN = "admin"
+
+class ActivityType:
+    INVOICE_UPLOADED = "invoice_uploaded"
+    AI_EXTRACTION_COMPLETED = "ai_extraction_completed"
+    USER_EDITED_FIELDS = "user_edited_fields"
+    INVOICE_APPROVED = "invoice_approved"
+    INVOICE_REJECTED = "invoice_rejected"
+    VOUCHER_CREATED = "voucher_created"
+    VOUCHER_PUSHED = "voucher_pushed"
+    USER_REGISTERED = "user_registered"
+    USER_LOGIN = "user_login"
+    COMPANY_CREATED = "company_created"
+    SUBSCRIPTION_ACTIVATED = "subscription_activated"
+    PROVIDER_CONFIGURED = "provider_configured"
+
+class VoucherStatus:
+    DRAFT = "draft"
+    READY_TO_PUSH = "ready_to_push"
+    PUSHED = "pushed"
+    FAILED = "failed"
+
+class ProviderType:
+    ECONOMIC = "e-conomic"
+    DINERO = "dinero"
+    BILLY = "billy"
+    NONE = "none"
+
+# Time saved estimates (in minutes)
+TIME_ESTIMATES = {
+    "ocr_extraction": 3,
+    "data_entry": 5,
+    "account_mapping": 2,
+    "vat_calculation": 1,
+    "voucher_creation": 4
+}
+
+# ==================== MODELS ====================
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -108,6 +153,7 @@ class TenantResponse(BaseModel):
     address: Optional[str]
     owner_id: str
     settings: Dict[str, Any]
+    provider_configured: bool = False
     created_at: str
 
 class TenantUpdate(BaseModel):
@@ -116,8 +162,42 @@ class TenantUpdate(BaseModel):
     address: Optional[str] = None
     settings: Optional[Dict[str, Any]] = None
 
-class DocumentCreate(BaseModel):
-    tenant_id: str
+# Provider Configuration Models
+class ProviderConfig(BaseModel):
+    provider_type: str = ProviderType.ECONOMIC
+    agreement_number: Optional[str] = None
+    user_token: Optional[str] = None
+    api_url: Optional[str] = None
+    is_active: bool = False
+
+class ProviderConfigUpdate(BaseModel):
+    provider_type: Optional[str] = None
+    agreement_number: Optional[str] = None
+    user_token: Optional[str] = None
+    api_url: Optional[str] = None
+    is_active: Optional[bool] = None
+
+# Enhanced Document Models with Field Confidence
+class FieldConfidence(BaseModel):
+    value: Any
+    confidence: float  # 0.0 to 1.0
+    source: str  # "ai", "ocr", "user_edited", "vendor_learned"
+    uncertain: bool = False
+
+class ExtractedInvoiceData(BaseModel):
+    supplier_name: Optional[FieldConfidence] = None
+    cvr_number: Optional[FieldConfidence] = None
+    invoice_number: Optional[FieldConfidence] = None
+    invoice_date: Optional[FieldConfidence] = None
+    due_date: Optional[FieldConfidence] = None
+    net_amount: Optional[FieldConfidence] = None
+    vat_amount: Optional[FieldConfidence] = None
+    total_amount: Optional[FieldConfidence] = None
+    vat_percentage: Optional[FieldConfidence] = None
+    currency: Optional[FieldConfidence] = None
+    account_code: Optional[FieldConfidence] = None
+    account_name: Optional[FieldConfidence] = None
+    line_items: Optional[List[Dict[str, Any]]] = None
 
 class DocumentResponse(BaseModel):
     id: str
@@ -126,43 +206,69 @@ class DocumentResponse(BaseModel):
     file_type: str
     status: str
     extracted_data: Optional[Dict[str, Any]]
+    field_confidence: Optional[Dict[str, Any]]
     ai_suggestions: Optional[Dict[str, Any]]
-    confidence_score: Optional[float]
+    overall_confidence: Optional[float]
+    uncertain_fields: Optional[List[str]]
     created_at: str
     updated_at: str
 
+class DocumentEditRequest(BaseModel):
+    field_updates: Dict[str, Any]
+
 class DocumentApproval(BaseModel):
     approved: bool
-    modifications: Optional[Dict[str, Any]] = None
+    final_data: Optional[Dict[str, Any]] = None
+    account_mapping: Optional[Dict[str, str]] = None
 
-class TransactionMatch(BaseModel):
-    transaction_id: str
-    invoice_id: str
-    confidence: float
-
-class ReconciliationResponse(BaseModel):
+# Voucher Models
+class VoucherResponse(BaseModel):
     id: str
     tenant_id: str
-    transaction_id: str
-    invoice_id: Optional[str]
+    document_id: str
     status: str
-    match_confidence: Optional[float]
+    voucher_data: Dict[str, Any]
+    account_mapping: Dict[str, Any]
+    preview: Dict[str, Any]
     created_at: str
+    updated_at: str
 
-class VATReportResponse(BaseModel):
+class VoucherPushRequest(BaseModel):
+    voucher_id: str
+
+# Activity Models
+class ActivityLog(BaseModel):
+    id: str
+    tenant_id: Optional[str]
+    user_id: str
+    activity_type: str
+    entity_type: str
+    entity_id: Optional[str]
+    details: Dict[str, Any]
+    time_saved_minutes: Optional[float]
+    timestamp: str
+
+# Vendor Learning Models
+class VendorPattern(BaseModel):
     id: str
     tenant_id: str
-    period_start: str
-    period_end: str
-    total_sales: float
-    total_purchases: float
-    vat_collected: float
-    vat_paid: float
-    net_vat: float
-    anomalies: List[Dict[str, Any]]
-    risk_score: float
+    vendor_identifier: str  # CVR or name hash
+    vendor_name: str
+    learned_account_code: Optional[str]
+    learned_account_name: Optional[str]
+    learned_vat_code: Optional[str]
+    learned_description_pattern: Optional[str]
+    usage_count: int
+    last_used: str
     created_at: str
 
+class VendorPatternUpdate(BaseModel):
+    account_code: Optional[str] = None
+    account_name: Optional[str] = None
+    vat_code: Optional[str] = None
+    description_pattern: Optional[str] = None
+
+# Subscription Models
 class SubscriptionPlan(BaseModel):
     id: str
     name: str
@@ -170,19 +276,71 @@ class SubscriptionPlan(BaseModel):
     currency: str = "dkk"
     features: List[str]
     limits: Dict[str, int]
+    is_active: bool = True
 
-class SubscriptionCreate(BaseModel):
+class SubscriptionResponse(BaseModel):
+    id: str
+    user_id: str
     plan_id: str
-    payment_method_id: Optional[str] = None
+    plan_name: str
+    status: str
+    activated_by: Optional[str]
+    activated_at: Optional[str]
+    current_period_start: str
+    current_period_end: str
+    usage: Dict[str, int]
+    limits: Dict[str, int]
+
+class AdminSubscriptionActivate(BaseModel):
+    user_id: str
+    plan_id: str
+    notes: Optional[str] = None
+
+class TransactionMatch(BaseModel):
+    transaction_id: str
+    invoice_id: str
+    confidence: float
 
 class DashboardStats(BaseModel):
     total_documents: int
     pending_documents: int
     processed_documents: int
+    total_vouchers: int
+    ready_to_push_vouchers: int
     total_transactions: int
     unmatched_transactions: int
     vat_risk_score: float
     time_saved_hours: float
+    time_saved_breakdown: Dict[str, float]
+
+# ==================== ENCRYPTION HELPERS ====================
+
+def get_fernet():
+    key = ENCRYPTION_KEY.encode() if isinstance(ENCRYPTION_KEY, str) else ENCRYPTION_KEY
+    # Ensure key is valid Fernet key (32 url-safe base64-encoded bytes)
+    if len(key) != 44:
+        key = base64.urlsafe_b64encode(hashlib.sha256(key).digest())
+    return Fernet(key)
+
+def encrypt_sensitive(data: str) -> str:
+    if not data:
+        return data
+    try:
+        f = get_fernet()
+        return f.encrypt(data.encode()).decode()
+    except Exception as e:
+        logger.error(f"Encryption error: {e}")
+        return data
+
+def decrypt_sensitive(data: str) -> str:
+    if not data:
+        return data
+    try:
+        f = get_fernet()
+        return f.decrypt(data.encode()).decode()
+    except Exception as e:
+        logger.error(f"Decryption error: {e}")
+        return data
 
 # ==================== AUTH HELPERS ====================
 
@@ -221,34 +379,184 @@ def require_role(allowed_roles: List[str]):
         return user
     return role_checker
 
-# ==================== AI SERVICE ====================
+# ==================== ACTIVITY LOGGING SERVICE ====================
 
-class AIService:
-    """Centralized AI service for all AI operations"""
+class ActivityService:
+    """Centralized activity logging service"""
     
     @staticmethod
-    async def extract_invoice_data(text: str) -> Dict[str, Any]:
-        """Extract structured invoice data from OCR text"""
+    async def log(
+        user_id: str,
+        activity_type: str,
+        entity_type: str,
+        entity_id: Optional[str] = None,
+        tenant_id: Optional[str] = None,
+        details: Dict[str, Any] = None,
+        time_saved_minutes: Optional[float] = None
+    ):
+        """Log an activity"""
+        activity = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "tenant_id": tenant_id,
+            "activity_type": activity_type,
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "details": details or {},
+            "time_saved_minutes": time_saved_minutes,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        await db.activity_logs.insert_one(activity)
+        return activity
+    
+    @staticmethod
+    async def get_activities(
+        tenant_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        activity_type: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Dict]:
+        """Get activities with filters"""
+        query = {}
+        if tenant_id:
+            query["tenant_id"] = tenant_id
+        if user_id:
+            query["user_id"] = user_id
+        if activity_type:
+            query["activity_type"] = activity_type
+        
+        activities = await db.activity_logs.find(query, {"_id": 0}).sort("timestamp", -1).limit(limit).to_list(limit)
+        return activities
+    
+    @staticmethod
+    async def calculate_time_saved(tenant_id: str, period_days: int = 30) -> Dict[str, float]:
+        """Calculate total time saved in different categories"""
+        since = (datetime.now(timezone.utc) - timedelta(days=period_days)).isoformat()
+        
+        pipeline = [
+            {"$match": {"tenant_id": tenant_id, "timestamp": {"$gte": since}, "time_saved_minutes": {"$exists": True}}},
+            {"$group": {
+                "_id": "$activity_type",
+                "total_minutes": {"$sum": "$time_saved_minutes"},
+                "count": {"$sum": 1}
+            }}
+        ]
+        
+        results = await db.activity_logs.aggregate(pipeline).to_list(100)
+        
+        breakdown = {}
+        total = 0
+        for r in results:
+            breakdown[r["_id"]] = r["total_minutes"]
+            total += r["total_minutes"]
+        
+        return {
+            "total_minutes": total,
+            "total_hours": round(total / 60, 2),
+            "breakdown": breakdown
+        }
+
+# ==================== VENDOR LEARNING SERVICE ====================
+
+class VendorLearningService:
+    """Service for learning vendor patterns"""
+    
+    @staticmethod
+    def get_vendor_identifier(cvr_number: Optional[str], supplier_name: Optional[str]) -> str:
+        """Generate unique vendor identifier"""
+        if cvr_number:
+            return f"cvr_{cvr_number}"
+        if supplier_name:
+            return f"name_{hashlib.md5(supplier_name.lower().strip().encode()).hexdigest()[:12]}"
+        return None
+    
+    @staticmethod
+    async def learn_from_approval(
+        tenant_id: str,
+        extracted_data: Dict[str, Any],
+        final_data: Dict[str, Any],
+        account_mapping: Dict[str, str]
+    ):
+        """Learn vendor pattern from approved invoice"""
+        cvr = final_data.get("cvr_number") or extracted_data.get("cvr_number")
+        supplier = final_data.get("supplier_name") or extracted_data.get("supplier_name")
+        
+        identifier = VendorLearningService.get_vendor_identifier(cvr, supplier)
+        if not identifier:
+            return
+        
+        existing = await db.vendor_patterns.find_one({
+            "tenant_id": tenant_id,
+            "vendor_identifier": identifier
+        })
+        
+        pattern_data = {
+            "tenant_id": tenant_id,
+            "vendor_identifier": identifier,
+            "vendor_name": supplier or "Unknown",
+            "learned_account_code": account_mapping.get("account_code"),
+            "learned_account_name": account_mapping.get("account_name"),
+            "learned_vat_code": account_mapping.get("vat_code") or str(final_data.get("vat_percentage", "25")),
+            "last_used": datetime.now(timezone.utc).isoformat()
+        }
+        
+        if existing:
+            await db.vendor_patterns.update_one(
+                {"id": existing["id"]},
+                {"$set": pattern_data, "$inc": {"usage_count": 1}}
+            )
+        else:
+            pattern_data["id"] = str(uuid.uuid4())
+            pattern_data["usage_count"] = 1
+            pattern_data["created_at"] = datetime.now(timezone.utc).isoformat()
+            await db.vendor_patterns.insert_one(pattern_data)
+    
+    @staticmethod
+    async def get_vendor_suggestion(tenant_id: str, cvr_number: Optional[str], supplier_name: Optional[str]) -> Optional[Dict]:
+        """Get learned pattern for vendor"""
+        identifier = VendorLearningService.get_vendor_identifier(cvr_number, supplier_name)
+        if not identifier:
+            return None
+        
+        pattern = await db.vendor_patterns.find_one({
+            "tenant_id": tenant_id,
+            "vendor_identifier": identifier
+        }, {"_id": 0})
+        
+        return pattern
+
+# ==================== AI SERVICE (ENHANCED) ====================
+
+class AIService:
+    """Centralized AI service with confidence scoring"""
+    
+    @staticmethod
+    async def extract_invoice_data_with_confidence(text: str, tenant_id: str = None) -> Dict[str, Any]:
+        """Extract invoice data with field-level confidence scores"""
         try:
             chat = LlmChat(
                 api_key=EMERGENT_LLM_KEY,
                 session_id=f"invoice-{uuid.uuid4()}",
                 system_message="""You are an expert invoice data extractor. Extract structured data from invoice text.
-                Return ONLY valid JSON with these fields:
+                For each field, provide a confidence score (0.0-1.0) based on how clearly the information was found.
+                
+                Return ONLY valid JSON with this structure:
                 {
-                    "supplier_name": "string",
-                    "cvr_number": "string (8 digits for Danish companies)",
-                    "invoice_number": "string",
-                    "invoice_date": "YYYY-MM-DD",
-                    "due_date": "YYYY-MM-DD",
-                    "net_amount": number,
-                    "vat_amount": number,
-                    "total_amount": number,
-                    "vat_percentage": number,
-                    "currency": "string (DKK, EUR, etc.)",
+                    "supplier_name": {"value": "string", "confidence": 0.0-1.0},
+                    "cvr_number": {"value": "string (8 digits)", "confidence": 0.0-1.0},
+                    "invoice_number": {"value": "string", "confidence": 0.0-1.0},
+                    "invoice_date": {"value": "YYYY-MM-DD", "confidence": 0.0-1.0},
+                    "due_date": {"value": "YYYY-MM-DD", "confidence": 0.0-1.0},
+                    "net_amount": {"value": number, "confidence": 0.0-1.0},
+                    "vat_amount": {"value": number, "confidence": 0.0-1.0},
+                    "total_amount": {"value": number, "confidence": 0.0-1.0},
+                    "vat_percentage": {"value": number, "confidence": 0.0-1.0},
+                    "currency": {"value": "DKK/EUR/etc", "confidence": 0.0-1.0},
                     "line_items": [{"description": "string", "quantity": number, "unit_price": number, "amount": number}]
                 }
-                If a field cannot be found, use null."""
+                
+                Set confidence < 0.7 if the field is unclear, partially visible, or inferred.
+                Set confidence > 0.9 only if clearly visible and unambiguous."""
             ).with_model("openai", "gpt-5.2")
             
             response = await chat.send_message(UserMessage(text=f"Extract invoice data from this text:\n\n{text}"))
@@ -256,34 +564,125 @@ class AIService:
             # Parse JSON from response
             json_match = re.search(r'\{[\s\S]*\}', response)
             if json_match:
-                return json.loads(json_match.group())
-            return {}
+                extracted = json.loads(json_match.group())
+                
+                # Process and normalize the response
+                processed = {}
+                uncertain_fields = []
+                total_confidence = 0
+                field_count = 0
+                
+                for field in ["supplier_name", "cvr_number", "invoice_number", "invoice_date", 
+                             "due_date", "net_amount", "vat_amount", "total_amount", 
+                             "vat_percentage", "currency"]:
+                    if field in extracted and isinstance(extracted[field], dict):
+                        value = extracted[field].get("value")
+                        confidence = extracted[field].get("confidence", 0.5)
+                        
+                        processed[field] = {
+                            "value": value,
+                            "confidence": confidence,
+                            "source": "ai",
+                            "uncertain": confidence < 0.7
+                        }
+                        
+                        if confidence < 0.7:
+                            uncertain_fields.append(field)
+                        
+                        total_confidence += confidence
+                        field_count += 1
+                    elif field in extracted:
+                        # Handle non-dict values (backward compatibility)
+                        processed[field] = {
+                            "value": extracted[field],
+                            "confidence": 0.6,
+                            "source": "ai",
+                            "uncertain": True
+                        }
+                        uncertain_fields.append(field)
+                        total_confidence += 0.6
+                        field_count += 1
+                
+                # Keep line items as-is
+                if "line_items" in extracted:
+                    processed["line_items"] = extracted["line_items"]
+                
+                # Calculate overall confidence
+                overall_confidence = total_confidence / field_count if field_count > 0 else 0
+                
+                return {
+                    "fields": processed,
+                    "overall_confidence": round(overall_confidence, 2),
+                    "uncertain_fields": uncertain_fields,
+                    "extraction_complete": True
+                }
+            
+            return {
+                "fields": {},
+                "overall_confidence": 0,
+                "uncertain_fields": [],
+                "extraction_complete": False
+            }
+            
         except Exception as e:
             logger.error(f"AI extraction error: {e}")
-            return {}
+            return {
+                "fields": {},
+                "overall_confidence": 0,
+                "uncertain_fields": [],
+                "extraction_complete": False,
+                "error": str(e)
+            }
     
     @staticmethod
-    async def suggest_account_category(supplier_name: str, description: str, amount: float) -> Dict[str, Any]:
-        """Suggest chart of accounts category"""
+    async def suggest_account_mapping(
+        supplier_name: str, 
+        description: str, 
+        amount: float,
+        vendor_pattern: Optional[Dict] = None
+    ) -> Dict[str, Any]:
+        """Suggest account mapping, incorporating vendor learning"""
+        
+        # If we have learned pattern, use it with high confidence
+        if vendor_pattern and vendor_pattern.get("learned_account_code"):
+            return {
+                "account_code": vendor_pattern["learned_account_code"],
+                "account_name": vendor_pattern.get("learned_account_name", "Learned Account"),
+                "vat_code": vendor_pattern.get("learned_vat_code", "25"),
+                "confidence": 0.95,
+                "source": "vendor_learned",
+                "usage_count": vendor_pattern.get("usage_count", 0)
+            }
+        
+        # Otherwise, use AI
         try:
             chat = LlmChat(
                 api_key=EMERGENT_LLM_KEY,
-                session_id=f"category-{uuid.uuid4()}",
-                system_message="""You are an accounting expert. Suggest the appropriate chart of accounts category.
-                Return JSON: {"account_code": "string", "account_name": "string", "vat_code": "string", "confidence": 0.0-1.0}"""
+                session_id=f"account-{uuid.uuid4()}",
+                system_message="""You are a Danish accounting expert. Suggest the appropriate chart of accounts category.
+                Use standard Danish kontoplan codes.
+                Return JSON: {
+                    "account_code": "4-digit code",
+                    "account_name": "Account name in Danish",
+                    "vat_code": "25 or 0",
+                    "confidence": 0.0-1.0
+                }"""
             ).with_model("openai", "gpt-5.2")
             
             response = await chat.send_message(UserMessage(
-                text=f"Supplier: {supplier_name}\nDescription: {description}\nAmount: {amount}\nSuggest accounting category."
+                text=f"Supplier: {supplier_name}\nDescription: {description}\nAmount: {amount} DKK\nSuggest Danish accounting category."
             ))
             
             json_match = re.search(r'\{[\s\S]*\}', response)
             if json_match:
-                return json.loads(json_match.group())
-            return {"account_code": "unknown", "account_name": "Unknown", "vat_code": "25", "confidence": 0.5}
+                result = json.loads(json_match.group())
+                result["source"] = "ai"
+                return result
+            
+            return {"account_code": "4000", "account_name": "Varekøb", "vat_code": "25", "confidence": 0.5, "source": "default"}
         except Exception as e:
-            logger.error(f"AI categorization error: {e}")
-            return {"account_code": "unknown", "account_name": "Unknown", "vat_code": "25", "confidence": 0.5}
+            logger.error(f"AI account mapping error: {e}")
+            return {"account_code": "4000", "account_name": "Varekøb", "vat_code": "25", "confidence": 0.3, "source": "fallback"}
     
     @staticmethod
     async def generate_vat_risk_summary(vat_data: Dict[str, Any]) -> str:
@@ -292,7 +691,7 @@ class AIService:
             chat = LlmChat(
                 api_key=EMERGENT_LLM_KEY,
                 session_id=f"vat-{uuid.uuid4()}",
-                system_message="You are a Danish VAT compliance expert. Analyze VAT data and provide risk assessment."
+                system_message="You are a Danish VAT compliance expert. Analyze VAT data and provide risk assessment in Danish."
             ).with_model("openai", "gpt-5.2")
             
             response = await chat.send_message(UserMessage(
@@ -303,132 +702,280 @@ class AIService:
             logger.error(f"AI VAT analysis error: {e}")
             return "Unable to generate risk summary"
 
-# ==================== PAYMENT PROVIDER ABSTRACTION ====================
+# ==================== ACCOUNTING PROVIDER ABSTRACTION (INTEGRATION-READY) ====================
 
-class PaymentProvider:
-    """Abstract payment provider interface"""
-    async def create_customer(self, email: str, name: str) -> str:
+class AccountingProviderInterface:
+    """Abstract accounting provider interface - Integration Ready"""
+    
+    def __init__(self, config: Dict[str, Any] = None):
+        self.config = config or {}
+        self.is_configured = False
+        self.is_connected = False
+    
+    async def connect(self) -> Dict[str, Any]:
+        """Connect to accounting system"""
         raise NotImplementedError
     
-    async def create_subscription(self, customer_id: str, plan_id: str) -> Dict[str, Any]:
+    async def refresh_token(self) -> bool:
+        """Refresh authentication token"""
         raise NotImplementedError
     
-    async def cancel_subscription(self, subscription_id: str) -> bool:
+    async def test_connection(self) -> Dict[str, Any]:
+        """Test if connection is working"""
         raise NotImplementedError
     
-    async def handle_webhook(self, payload: bytes, signature: str) -> Dict[str, Any]:
+    async def fetch_chart_of_accounts(self) -> List[Dict]:
+        """Fetch chart of accounts"""
+        raise NotImplementedError
+    
+    async def create_draft_voucher(self, voucher_data: Dict) -> Dict[str, Any]:
+        """Create a draft voucher in accounting system"""
+        raise NotImplementedError
+    
+    async def push_voucher(self, voucher_id: str) -> Dict[str, Any]:
+        """Push voucher to accounting system"""
+        raise NotImplementedError
+    
+    async def validate_vat(self, vat_data: Dict) -> Dict[str, Any]:
+        """Validate VAT data"""
+        raise NotImplementedError
+    
+    async def attach_document(self, voucher_id: str, document_data: bytes, filename: str) -> bool:
+        """Attach document to voucher"""
         raise NotImplementedError
 
-class StripeProvider(PaymentProvider):
-    """Stripe payment provider implementation"""
+class EconomicProvider(AccountingProviderInterface):
+    """e-conomic provider - Integration Ready Structure"""
     
-    async def create_customer(self, email: str, name: str) -> str:
-        try:
-            customer = stripe.Customer.create(email=email, name=name)
-            return customer.id
-        except Exception as e:
-            logger.error(f"Stripe customer creation error: {e}")
-            raise HTTPException(status_code=500, detail="Payment provider error")
+    PROVIDER_TYPE = ProviderType.ECONOMIC
+    API_BASE_URL = "https://restapi.e-conomic.com"
     
-    async def create_subscription(self, customer_id: str, price_id: str) -> Dict[str, Any]:
-        try:
-            subscription = stripe.Subscription.create(
-                customer=customer_id,
-                items=[{"price": price_id}],
-                payment_behavior="default_incomplete",
-                expand=["latest_invoice.payment_intent"]
-            )
+    def __init__(self, config: Dict[str, Any] = None):
+        super().__init__(config)
+        self.agreement_number = config.get("agreement_number") if config else None
+        self.user_token = config.get("user_token") if config else None
+        self.api_url = config.get("api_url", self.API_BASE_URL) if config else self.API_BASE_URL
+        self.is_configured = bool(self.agreement_number and self.user_token)
+    
+    async def connect(self) -> Dict[str, Any]:
+        """Connect to e-conomic API"""
+        if not self.is_configured:
             return {
-                "subscription_id": subscription.id,
-                "status": subscription.status,
-                "client_secret": subscription.latest_invoice.payment_intent.client_secret if subscription.latest_invoice else None
+                "success": False,
+                "error": "Provider not configured. Please set agreement number and user token.",
+                "requires_configuration": True
             }
-        except Exception as e:
-            logger.error(f"Stripe subscription error: {e}")
-            raise HTTPException(status_code=500, detail="Payment provider error")
+        
+        # TODO: Implement actual e-conomic OAuth/API connection
+        # For now, return integration-ready response
+        return {
+            "success": False,
+            "error": "e-conomic integration pending. System is ready to connect once credentials are activated.",
+            "integration_ready": True,
+            "provider": self.PROVIDER_TYPE
+        }
     
-    async def cancel_subscription(self, subscription_id: str) -> bool:
-        try:
-            stripe.Subscription.delete(subscription_id)
-            return True
-        except Exception as e:
-            logger.error(f"Stripe cancellation error: {e}")
+    async def refresh_token(self) -> bool:
+        if not self.is_configured:
             return False
+        # TODO: Implement token refresh
+        return False
     
-    async def handle_webhook(self, payload: bytes, signature: str) -> Dict[str, Any]:
-        endpoint_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
-        try:
-            event = stripe.Webhook.construct_event(payload, signature, endpoint_secret)
-            return {"event_type": event.type, "data": event.data.object}
-        except Exception as e:
-            logger.error(f"Stripe webhook error: {e}")
-            raise HTTPException(status_code=400, detail="Webhook error")
-
-# Initialize payment provider
-payment_provider = StripeProvider()
-
-# ==================== ACCOUNTING PROVIDER ABSTRACTION ====================
-
-class AccountingProvider:
-    """Abstract accounting provider interface"""
-    async def authenticate(self, credentials: Dict[str, str]) -> bool:
-        raise NotImplementedError
+    async def test_connection(self) -> Dict[str, Any]:
+        """Test connection status"""
+        return {
+            "connected": False,
+            "configured": self.is_configured,
+            "provider": self.PROVIDER_TYPE,
+            "message": "Integration ready - awaiting live credentials"
+        }
     
-    async def fetch_invoices(self, tenant_id: str, from_date: str, to_date: str) -> List[Dict]:
-        raise NotImplementedError
+    async def fetch_chart_of_accounts(self) -> List[Dict]:
+        """Return standard Danish chart of accounts structure"""
+        # Return default Danish kontoplan structure
+        return [
+            {"code": "1000", "name": "Likvider", "type": "asset"},
+            {"code": "2000", "name": "Tilgodehavender", "type": "asset"},
+            {"code": "3000", "name": "Varelager", "type": "asset"},
+            {"code": "4000", "name": "Varekøb", "type": "expense"},
+            {"code": "4500", "name": "Omkostninger", "type": "expense"},
+            {"code": "5000", "name": "Lønninger", "type": "expense"},
+            {"code": "6000", "name": "Andre omkostninger", "type": "expense"},
+            {"code": "7000", "name": "Af- og nedskrivninger", "type": "expense"},
+            {"code": "8000", "name": "Finansielle poster", "type": "expense"},
+        ]
     
-    async def fetch_bank_transactions(self, tenant_id: str, from_date: str, to_date: str) -> List[Dict]:
-        raise NotImplementedError
+    async def create_draft_voucher(self, voucher_data: Dict) -> Dict[str, Any]:
+        """Create internal draft voucher (ready for push when connected)"""
+        return {
+            "success": True,
+            "voucher_id": str(uuid.uuid4()),
+            "status": VoucherStatus.READY_TO_PUSH,
+            "message": "Draft voucher created. Ready to push to e-conomic when connected.",
+            "integration_ready": True
+        }
     
-    async def fetch_chart_of_accounts(self, tenant_id: str) -> List[Dict]:
-        raise NotImplementedError
+    async def push_voucher(self, voucher_id: str) -> Dict[str, Any]:
+        """Push voucher to e-conomic"""
+        if not self.is_configured:
+            return {
+                "success": False,
+                "error": "Cannot push: e-conomic not configured",
+                "requires_configuration": True
+            }
+        
+        # TODO: Implement actual push to e-conomic API
+        return {
+            "success": False,
+            "error": "Push pending: awaiting live e-conomic integration",
+            "integration_ready": True
+        }
     
-    async def create_draft_voucher(self, tenant_id: str, voucher_data: Dict) -> str:
-        raise NotImplementedError
+    async def validate_vat(self, vat_data: Dict) -> Dict[str, Any]:
+        """Validate VAT according to Danish rules"""
+        net = vat_data.get("net_amount", 0)
+        vat = vat_data.get("vat_amount", 0)
+        rate = vat_data.get("vat_percentage", 25)
+        
+        expected_vat = net * (rate / 100)
+        is_valid = abs(vat - expected_vat) < 1  # Allow 1 DKK tolerance
+        
+        return {
+            "valid": is_valid,
+            "expected_vat": round(expected_vat, 2),
+            "actual_vat": vat,
+            "difference": round(vat - expected_vat, 2),
+            "rate": rate
+        }
     
-    async def attach_document(self, tenant_id: str, voucher_id: str, document_url: str) -> bool:
-        raise NotImplementedError
-    
-    async def fetch_vat_report_data(self, tenant_id: str, period: str) -> Dict:
-        raise NotImplementedError
-
-class EconomicProvider(AccountingProvider):
-    """e-conomic accounting provider implementation (placeholder)"""
-    
-    async def authenticate(self, credentials: Dict[str, str]) -> bool:
-        # Implement e-conomic OAuth flow
+    async def attach_document(self, voucher_id: str, document_data: bytes, filename: str) -> bool:
+        # TODO: Implement document attachment
         return True
-    
-    async def fetch_invoices(self, tenant_id: str, from_date: str, to_date: str) -> List[Dict]:
-        # Fetch from e-conomic API
-        return []
-    
-    async def fetch_bank_transactions(self, tenant_id: str, from_date: str, to_date: str) -> List[Dict]:
-        return []
-    
-    async def fetch_chart_of_accounts(self, tenant_id: str) -> List[Dict]:
-        return []
-    
-    async def create_draft_voucher(self, tenant_id: str, voucher_data: Dict) -> str:
-        return str(uuid.uuid4())
-    
-    async def attach_document(self, tenant_id: str, voucher_id: str, document_url: str) -> bool:
-        return True
-    
-    async def fetch_vat_report_data(self, tenant_id: str, period: str) -> Dict:
-        return {}
 
-# ==================== OCR PROVIDER ABSTRACTION ====================
+# Provider factory
+def get_accounting_provider(provider_type: str, config: Dict[str, Any] = None) -> AccountingProviderInterface:
+    """Factory to get appropriate accounting provider"""
+    providers = {
+        ProviderType.ECONOMIC: EconomicProvider,
+        # Future: ProviderType.DINERO: DineroProvider,
+        # Future: ProviderType.BILLY: BillyProvider,
+    }
+    
+    provider_class = providers.get(provider_type, EconomicProvider)
+    return provider_class(config)
 
-class OCRProvider:
-    """Abstract OCR provider interface"""
-    async def extract_text(self, document_bytes: bytes, file_type: str) -> str:
-        raise NotImplementedError
+# ==================== VOUCHER SERVICE ====================
 
-class TesseractProvider(OCRProvider):
+class VoucherService:
+    """Service for managing draft vouchers"""
+    
+    @staticmethod
+    async def create_draft_voucher(
+        tenant_id: str,
+        document_id: str,
+        extracted_data: Dict[str, Any],
+        account_mapping: Dict[str, str],
+        user_id: str
+    ) -> Dict[str, Any]:
+        """Create a draft voucher from approved document"""
+        
+        voucher_id = str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+        
+        # Build voucher data
+        voucher_data = {
+            "supplier_name": extracted_data.get("supplier_name"),
+            "cvr_number": extracted_data.get("cvr_number"),
+            "invoice_number": extracted_data.get("invoice_number"),
+            "invoice_date": extracted_data.get("invoice_date"),
+            "due_date": extracted_data.get("due_date"),
+            "net_amount": extracted_data.get("net_amount"),
+            "vat_amount": extracted_data.get("vat_amount"),
+            "total_amount": extracted_data.get("total_amount"),
+            "vat_percentage": extracted_data.get("vat_percentage", 25),
+            "currency": extracted_data.get("currency", "DKK"),
+        }
+        
+        # Build voucher preview
+        preview = {
+            "debit_entries": [
+                {
+                    "account_code": account_mapping.get("account_code", "4000"),
+                    "account_name": account_mapping.get("account_name", "Varekøb"),
+                    "amount": voucher_data["net_amount"],
+                    "vat_code": account_mapping.get("vat_code", "25")
+                }
+            ],
+            "credit_entries": [
+                {
+                    "account_code": "6900",
+                    "account_name": "Leverandørgæld",
+                    "amount": voucher_data["total_amount"]
+                }
+            ],
+            "vat_entry": {
+                "account_code": "6510",
+                "account_name": "Indgående moms",
+                "amount": voucher_data["vat_amount"]
+            },
+            "total_debit": voucher_data["total_amount"],
+            "total_credit": voucher_data["total_amount"],
+            "balanced": True
+        }
+        
+        voucher = {
+            "id": voucher_id,
+            "tenant_id": tenant_id,
+            "document_id": document_id,
+            "status": VoucherStatus.READY_TO_PUSH,
+            "voucher_data": voucher_data,
+            "account_mapping": account_mapping,
+            "preview": preview,
+            "created_by": user_id,
+            "created_at": now,
+            "updated_at": now
+        }
+        
+        await db.vouchers.insert_one(voucher)
+        
+        # Log activity
+        time_saved = TIME_ESTIMATES["voucher_creation"]
+        await ActivityService.log(
+            user_id=user_id,
+            activity_type=ActivityType.VOUCHER_CREATED,
+            entity_type="voucher",
+            entity_id=voucher_id,
+            tenant_id=tenant_id,
+            details={
+                "document_id": document_id,
+                "total_amount": voucher_data["total_amount"],
+                "account_code": account_mapping.get("account_code")
+            },
+            time_saved_minutes=time_saved
+        )
+        
+        return voucher
+    
+    @staticmethod
+    async def get_voucher(voucher_id: str) -> Optional[Dict]:
+        """Get voucher by ID"""
+        return await db.vouchers.find_one({"id": voucher_id}, {"_id": 0})
+    
+    @staticmethod
+    async def get_tenant_vouchers(tenant_id: str, status: Optional[str] = None) -> List[Dict]:
+        """Get all vouchers for a tenant"""
+        query = {"tenant_id": tenant_id}
+        if status:
+            query["status"] = status
+        return await db.vouchers.find(query, {"_id": 0}).to_list(1000)
+
+# ==================== OCR PROVIDER ====================
+
+class TesseractProvider:
     """Tesseract OCR provider implementation"""
     
-    async def extract_text(self, document_bytes: bytes, file_type: str) -> str:
+    @staticmethod
+    async def extract_text(document_bytes: bytes, file_type: str) -> str:
         try:
             import pytesseract
             from PIL import Image
@@ -447,20 +994,14 @@ class TesseractProvider(OCRProvider):
             logger.error(f"Tesseract OCR error: {e}")
             return ""
 
-# Initialize providers
-ocr_provider = TesseractProvider()
-accounting_provider = EconomicProvider()
-
 # ==================== AUTH ROUTES ====================
 
 @auth_router.post("/register", response_model=TokenResponse)
 async def register(user_data: UserCreate):
-    # Check if user exists
     existing = await db.users.find_one({"email": user_data.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Create user
     user_id = str(uuid.uuid4())
     user_doc = {
         "id": user_id,
@@ -473,17 +1014,15 @@ async def register(user_data: UserCreate):
     }
     await db.users.insert_one(user_doc)
     
-    # Create token
     token = create_token(user_id, user_data.email, user_data.role)
     
-    # Log audit
-    await db.audit_logs.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": user_id,
-        "action": "user_registered",
-        "details": {"email": user_data.email, "role": user_data.role},
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    })
+    await ActivityService.log(
+        user_id=user_id,
+        activity_type=ActivityType.USER_REGISTERED,
+        entity_type="user",
+        entity_id=user_id,
+        details={"email": user_data.email, "role": user_data.role}
+    )
     
     return TokenResponse(
         access_token=token,
@@ -504,13 +1043,13 @@ async def login(credentials: UserLogin):
     
     token = create_token(user["id"], user["email"], user["role"])
     
-    await db.audit_logs.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": user["id"],
-        "action": "user_login",
-        "details": {},
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    })
+    await ActivityService.log(
+        user_id=user["id"],
+        activity_type=ActivityType.USER_LOGIN,
+        entity_type="user",
+        entity_id=user["id"],
+        details={}
+    )
     
     return TokenResponse(
         access_token=token,
@@ -534,7 +1073,6 @@ async def request_password_reset(data: PasswordResetRequest):
             "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
             "used": False
         })
-        # In production, send email with reset link
         logger.info(f"Password reset token for {data.email}: {reset_token}")
     
     return {"message": "If email exists, reset instructions have been sent"}
@@ -584,19 +1122,20 @@ async def create_tenant(tenant_data: TenantCreate, user: dict = Depends(get_curr
         "owner_id": user["id"],
         "settings": tenant_data.settings or {},
         "users": [user["id"]],
+        "provider_config": None,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
     await db.tenants.insert_one(tenant_doc)
     
-    await db.audit_logs.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": user["id"],
-        "tenant_id": tenant_id,
-        "action": "tenant_created",
-        "details": {"name": tenant_data.name},
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    })
+    await ActivityService.log(
+        user_id=user["id"],
+        activity_type=ActivityType.COMPANY_CREATED,
+        entity_type="tenant",
+        entity_id=tenant_id,
+        tenant_id=tenant_id,
+        details={"name": tenant_data.name}
+    )
     
     return TenantResponse(
         id=tenant_id,
@@ -605,6 +1144,7 @@ async def create_tenant(tenant_data: TenantCreate, user: dict = Depends(get_curr
         address=tenant_data.address,
         owner_id=user["id"],
         settings=tenant_doc["settings"],
+        provider_configured=False,
         created_at=tenant_doc["created_at"]
     )
 
@@ -622,6 +1162,7 @@ async def get_user_tenants(user: dict = Depends(get_current_user)):
         address=t.get("address"),
         owner_id=t["owner_id"],
         settings=t.get("settings", {}),
+        provider_configured=bool(t.get("provider_config")),
         created_at=t["created_at"]
     ) for t in tenants]
 
@@ -641,6 +1182,7 @@ async def get_tenant(tenant_id: str, user: dict = Depends(get_current_user)):
         address=tenant.get("address"),
         owner_id=tenant["owner_id"],
         settings=tenant.get("settings", {}),
+        provider_configured=bool(tenant.get("provider_config")),
         created_at=tenant["created_at"]
     )
 
@@ -666,6 +1208,7 @@ async def update_tenant(tenant_id: str, update_data: TenantUpdate, user: dict = 
         address=updated.get("address"),
         owner_id=updated["owner_id"],
         settings=updated.get("settings", {}),
+        provider_configured=bool(updated.get("provider_config")),
         created_at=updated["created_at"]
     )
 
@@ -685,7 +1228,83 @@ async def add_user_to_tenant(tenant_id: str, user_email: str, user: dict = Depen
     await db.tenants.update_one({"id": tenant_id}, {"$addToSet": {"users": target_user["id"]}})
     return {"message": "User added to tenant"}
 
-# ==================== DOCUMENT ROUTES ====================
+# Provider Configuration Routes
+@tenant_router.get("/{tenant_id}/provider")
+async def get_provider_config(tenant_id: str, user: dict = Depends(get_current_user)):
+    tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    
+    if user["role"] != UserRole.ADMIN and user["id"] not in tenant.get("users", []):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    config = tenant.get("provider_config") or {}
+    
+    # Mask sensitive data
+    if config.get("user_token"):
+        config["user_token"] = "***configured***"
+    
+    return {
+        "configured": bool(tenant.get("provider_config")),
+        "config": config,
+        "available_providers": [ProviderType.ECONOMIC]
+    }
+
+@tenant_router.put("/{tenant_id}/provider")
+async def update_provider_config(
+    tenant_id: str, 
+    config: ProviderConfigUpdate, 
+    user: dict = Depends(get_current_user)
+):
+    tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    
+    if tenant["owner_id"] != user["id"] and user["role"] != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Only owner can configure provider")
+    
+    # Build config update
+    current_config = tenant.get("provider_config") or {}
+    updates = {k: v for k, v in config.model_dump().items() if v is not None}
+    
+    # Encrypt sensitive data
+    if "user_token" in updates and updates["user_token"]:
+        updates["user_token"] = encrypt_sensitive(updates["user_token"])
+    
+    new_config = {**current_config, **updates}
+    
+    await db.tenants.update_one(
+        {"id": tenant_id},
+        {"$set": {"provider_config": new_config, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    await ActivityService.log(
+        user_id=user["id"],
+        activity_type=ActivityType.PROVIDER_CONFIGURED,
+        entity_type="tenant",
+        entity_id=tenant_id,
+        tenant_id=tenant_id,
+        details={"provider_type": new_config.get("provider_type")}
+    )
+    
+    return {"message": "Provider configuration updated", "configured": bool(new_config.get("user_token"))}
+
+@tenant_router.post("/{tenant_id}/provider/test")
+async def test_provider_connection(tenant_id: str, user: dict = Depends(get_current_user)):
+    tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    
+    if user["role"] != UserRole.ADMIN and user["id"] not in tenant.get("users", []):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    config = tenant.get("provider_config") or {}
+    provider = get_accounting_provider(config.get("provider_type", ProviderType.ECONOMIC), config)
+    
+    result = await provider.test_connection()
+    return result
+
+# ==================== DOCUMENT ROUTES (ENHANCED) ====================
 
 @document_router.post("/upload", response_model=DocumentResponse)
 async def upload_document(
@@ -704,12 +1323,12 @@ async def upload_document(
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="Invalid file type. Allowed: jpg, png, pdf")
     
-    # Read file
     file_content = await file.read()
     file_type = "pdf" if file.content_type == "application/pdf" else "image"
     
-    # Create document record
     doc_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
     doc = {
         "id": doc_id,
         "tenant_id": tenant_id,
@@ -719,15 +1338,28 @@ async def upload_document(
         "file_content": base64.b64encode(file_content).decode(),
         "status": "processing",
         "extracted_data": None,
+        "field_confidence": None,
         "ai_suggestions": None,
-        "confidence_score": None,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat()
+        "overall_confidence": None,
+        "uncertain_fields": [],
+        "user_edits": [],
+        "created_at": now,
+        "updated_at": now
     }
     await db.documents.insert_one(doc)
     
-    # Process document in background
-    background_tasks.add_task(process_document, doc_id, file_content, file_type)
+    # Log upload activity
+    await ActivityService.log(
+        user_id=user["id"],
+        activity_type=ActivityType.INVOICE_UPLOADED,
+        entity_type="document",
+        entity_id=doc_id,
+        tenant_id=tenant_id,
+        details={"filename": file.filename, "file_type": file_type}
+    )
+    
+    # Process in background
+    background_tasks.add_task(process_document_enhanced, doc_id, file_content, file_type, tenant_id, user["id"])
     
     return DocumentResponse(
         id=doc_id,
@@ -736,55 +1368,101 @@ async def upload_document(
         file_type=file_type,
         status="processing",
         extracted_data=None,
+        field_confidence=None,
         ai_suggestions=None,
-        confidence_score=None,
-        created_at=doc["created_at"],
-        updated_at=doc["updated_at"]
+        overall_confidence=None,
+        uncertain_fields=None,
+        created_at=now,
+        updated_at=now
     )
 
-async def process_document(doc_id: str, file_content: bytes, file_type: str):
-    """Background task to process document with OCR and AI"""
+async def process_document_enhanced(doc_id: str, file_content: bytes, file_type: str, tenant_id: str, user_id: str):
+    """Enhanced document processing with confidence scoring"""
     try:
         # OCR extraction
-        ocr_text = await ocr_provider.extract_text(file_content, file_type)
+        ocr_text = await TesseractProvider.extract_text(file_content, file_type)
         
-        # AI data extraction
-        extracted_data = await AIService.extract_invoice_data(ocr_text)
+        time_saved = TIME_ESTIMATES["ocr_extraction"]
         
-        # Validate CVR format (Danish: 8 digits)
-        cvr = extracted_data.get("cvr_number", "")
-        cvr_valid = bool(re.match(r"^\d{8}$", str(cvr))) if cvr else None
+        # AI extraction with confidence
+        ai_result = await AIService.extract_invoice_data_with_confidence(ocr_text, tenant_id)
         
-        # Validate VAT consistency (Danish standard: 25%)
-        vat_amount = extracted_data.get("vat_amount", 0) or 0
-        net_amount = extracted_data.get("net_amount", 0) or 0
+        time_saved += TIME_ESTIMATES["data_entry"]
+        
+        fields = ai_result.get("fields", {})
+        overall_confidence = ai_result.get("overall_confidence", 0)
+        uncertain_fields = ai_result.get("uncertain_fields", [])
+        
+        # Get vendor learning suggestion
+        supplier_name = fields.get("supplier_name", {}).get("value")
+        cvr_number = fields.get("cvr_number", {}).get("value")
+        
+        vendor_pattern = await VendorLearningService.get_vendor_suggestion(
+            tenant_id, cvr_number, supplier_name
+        )
+        
+        # Get account mapping suggestion
+        total_amount = fields.get("total_amount", {}).get("value", 0)
+        account_suggestion = await AIService.suggest_account_mapping(
+            supplier_name or "",
+            str(fields.get("line_items", [])),
+            total_amount or 0,
+            vendor_pattern
+        )
+        
+        time_saved += TIME_ESTIMATES["account_mapping"]
+        
+        # Add account mapping to fields
+        fields["account_code"] = {
+            "value": account_suggestion.get("account_code"),
+            "confidence": account_suggestion.get("confidence", 0.5),
+            "source": account_suggestion.get("source", "ai"),
+            "uncertain": account_suggestion.get("confidence", 0.5) < 0.7
+        }
+        fields["account_name"] = {
+            "value": account_suggestion.get("account_name"),
+            "confidence": account_suggestion.get("confidence", 0.5),
+            "source": account_suggestion.get("source", "ai"),
+            "uncertain": account_suggestion.get("confidence", 0.5) < 0.7
+        }
+        
+        # Validate CVR format
+        cvr_val = cvr_number
+        cvr_valid = bool(re.match(r"^\d{8}$", str(cvr_val))) if cvr_val else None
+        
+        # Validate VAT consistency
+        vat_amount = fields.get("vat_amount", {}).get("value", 0) or 0
+        net_amount = fields.get("net_amount", {}).get("value", 0) or 0
         expected_vat = net_amount * 0.25
         vat_consistent = abs(vat_amount - expected_vat) < 1 if net_amount > 0 else None
         
-        # Check for duplicate invoice
+        time_saved += TIME_ESTIMATES["vat_calculation"]
+        
+        # Check duplicates
         existing = await db.documents.find_one({
             "id": {"$ne": doc_id},
-            "extracted_data.invoice_number": extracted_data.get("invoice_number"),
-            "extracted_data.supplier_name": extracted_data.get("supplier_name")
+            "tenant_id": tenant_id,
+            "extracted_data.invoice_number": fields.get("invoice_number", {}).get("value"),
+            "extracted_data.supplier_name": supplier_name
         })
         is_duplicate = existing is not None
         
-        # Get AI categorization suggestions
-        ai_suggestions = await AIService.suggest_account_category(
-            extracted_data.get("supplier_name", ""),
-            str(extracted_data.get("line_items", [])),
-            extracted_data.get("total_amount", 0) or 0
-        )
+        # Build extracted_data for backward compatibility
+        extracted_data = {k: v.get("value") if isinstance(v, dict) else v for k, v in fields.items()}
         
-        # Calculate confidence score
-        confidence_factors = [
-            0.3 if extracted_data.get("supplier_name") else 0,
-            0.2 if extracted_data.get("invoice_number") else 0,
-            0.2 if extracted_data.get("total_amount") else 0,
-            0.15 if cvr_valid else 0,
-            0.15 if vat_consistent else 0
-        ]
-        confidence_score = sum(confidence_factors)
+        # Build AI suggestions
+        ai_suggestions = {
+            "account_code": account_suggestion.get("account_code"),
+            "account_name": account_suggestion.get("account_name"),
+            "vat_code": account_suggestion.get("vat_code"),
+            "account_confidence": account_suggestion.get("confidence"),
+            "account_source": account_suggestion.get("source"),
+            "cvr_valid": cvr_valid,
+            "vat_consistent": vat_consistent,
+            "is_duplicate": is_duplicate,
+            "vendor_pattern_found": vendor_pattern is not None,
+            "vendor_usage_count": vendor_pattern.get("usage_count") if vendor_pattern else 0
+        }
         
         # Update document
         await db.documents.update_one(
@@ -793,23 +1471,40 @@ async def process_document(doc_id: str, file_content: bytes, file_type: str):
                 "status": "review",
                 "ocr_text": ocr_text,
                 "extracted_data": extracted_data,
-                "ai_suggestions": {
-                    **ai_suggestions,
-                    "cvr_valid": cvr_valid,
-                    "vat_consistent": vat_consistent,
-                    "is_duplicate": is_duplicate
-                },
-                "confidence_score": confidence_score,
+                "field_confidence": fields,
+                "ai_suggestions": ai_suggestions,
+                "overall_confidence": overall_confidence,
+                "uncertain_fields": uncertain_fields,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }}
         )
         
-        logger.info(f"Document {doc_id} processed successfully")
+        # Log AI extraction activity
+        await ActivityService.log(
+            user_id=user_id,
+            activity_type=ActivityType.AI_EXTRACTION_COMPLETED,
+            entity_type="document",
+            entity_id=doc_id,
+            tenant_id=tenant_id,
+            details={
+                "overall_confidence": overall_confidence,
+                "uncertain_fields_count": len(uncertain_fields),
+                "vendor_pattern_used": vendor_pattern is not None
+            },
+            time_saved_minutes=time_saved
+        )
+        
+        logger.info(f"Document {doc_id} processed with confidence {overall_confidence}")
+        
     except Exception as e:
         logger.error(f"Document processing error for {doc_id}: {e}")
         await db.documents.update_one(
             {"id": doc_id},
-            {"$set": {"status": "error", "error_message": str(e), "updated_at": datetime.now(timezone.utc).isoformat()}}
+            {"$set": {
+                "status": "error",
+                "error_message": str(e),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
         )
 
 @document_router.get("/", response_model=List[DocumentResponse])
@@ -826,7 +1521,6 @@ async def get_documents(
             raise HTTPException(status_code=403, detail="Access denied")
         query["tenant_id"] = tenant_id
     else:
-        # Get all tenants user has access to
         if user["role"] != UserRole.ADMIN:
             user_tenants = await db.tenants.find({"users": user["id"]}, {"id": 1, "_id": 0}).to_list(100)
             tenant_ids = [t["id"] for t in user_tenants]
@@ -844,8 +1538,10 @@ async def get_documents(
         file_type=d["file_type"],
         status=d["status"],
         extracted_data=d.get("extracted_data"),
+        field_confidence=d.get("field_confidence"),
         ai_suggestions=d.get("ai_suggestions"),
-        confidence_score=d.get("confidence_score"),
+        overall_confidence=d.get("overall_confidence"),
+        uncertain_fields=d.get("uncertain_fields"),
         created_at=d["created_at"],
         updated_at=d["updated_at"]
     ) for d in docs]
@@ -867,14 +1563,78 @@ async def get_document(doc_id: str, user: dict = Depends(get_current_user)):
         file_type=doc["file_type"],
         status=doc["status"],
         extracted_data=doc.get("extracted_data"),
+        field_confidence=doc.get("field_confidence"),
         ai_suggestions=doc.get("ai_suggestions"),
-        confidence_score=doc.get("confidence_score"),
+        overall_confidence=doc.get("overall_confidence"),
+        uncertain_fields=doc.get("uncertain_fields"),
         created_at=doc["created_at"],
         updated_at=doc["updated_at"]
     )
 
+@document_router.put("/{doc_id}/edit")
+async def edit_document_fields(doc_id: str, edit_request: DocumentEditRequest, user: dict = Depends(get_current_user)):
+    """Allow user to edit extracted fields before approval"""
+    doc = await db.documents.find_one({"id": doc_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    tenant = await db.tenants.find_one({"id": doc["tenant_id"]}, {"_id": 0})
+    if not tenant or (user["id"] not in tenant.get("users", []) and user["role"] != UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    if doc["status"] != "review":
+        raise HTTPException(status_code=400, detail="Can only edit documents in review status")
+    
+    # Track user edits
+    edits = doc.get("user_edits", [])
+    edits.append({
+        "user_id": user["id"],
+        "fields": list(edit_request.field_updates.keys()),
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+    
+    # Update extracted data and field confidence
+    extracted_data = doc.get("extracted_data", {})
+    field_confidence = doc.get("field_confidence", {})
+    
+    for field, value in edit_request.field_updates.items():
+        extracted_data[field] = value
+        field_confidence[field] = {
+            "value": value,
+            "confidence": 1.0,  # User edited = 100% confidence
+            "source": "user_edited",
+            "uncertain": False
+        }
+    
+    # Recalculate uncertain fields
+    uncertain_fields = [k for k, v in field_confidence.items() if isinstance(v, dict) and v.get("uncertain")]
+    
+    await db.documents.update_one(
+        {"id": doc_id},
+        {"$set": {
+            "extracted_data": extracted_data,
+            "field_confidence": field_confidence,
+            "uncertain_fields": uncertain_fields,
+            "user_edits": edits,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Log edit activity
+    await ActivityService.log(
+        user_id=user["id"],
+        activity_type=ActivityType.USER_EDITED_FIELDS,
+        entity_type="document",
+        entity_id=doc_id,
+        tenant_id=doc["tenant_id"],
+        details={"fields_edited": list(edit_request.field_updates.keys())}
+    )
+    
+    return {"message": "Fields updated", "fields_edited": list(edit_request.field_updates.keys())}
+
 @document_router.put("/{doc_id}/approve")
 async def approve_document(doc_id: str, approval: DocumentApproval, user: dict = Depends(get_current_user)):
+    """Approve document and create draft voucher"""
     doc = await db.documents.find_one({"id": doc_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -884,35 +1644,68 @@ async def approve_document(doc_id: str, approval: DocumentApproval, user: dict =
         raise HTTPException(status_code=403, detail="Access denied")
     
     if approval.approved:
-        # Merge modifications with extracted data
-        final_data = {**(doc.get("extracted_data") or {}), **(approval.modifications or {})}
+        # Build final data
+        extracted_data = doc.get("extracted_data", {})
+        final_data = {**extracted_data, **(approval.final_data or {})}
         
-        # Create voucher in accounting system
-        voucher_id = await accounting_provider.create_draft_voucher(doc["tenant_id"], final_data)
+        # Build account mapping
+        ai_suggestions = doc.get("ai_suggestions", {})
+        account_mapping = approval.account_mapping or {
+            "account_code": ai_suggestions.get("account_code", "4000"),
+            "account_name": ai_suggestions.get("account_name", "Varekøb"),
+            "vat_code": ai_suggestions.get("vat_code", "25")
+        }
         
+        # Create draft voucher
+        voucher = await VoucherService.create_draft_voucher(
+            tenant_id=doc["tenant_id"],
+            document_id=doc_id,
+            extracted_data=final_data,
+            account_mapping=account_mapping,
+            user_id=user["id"]
+        )
+        
+        # Learn vendor pattern
+        await VendorLearningService.learn_from_approval(
+            tenant_id=doc["tenant_id"],
+            extracted_data=extracted_data,
+            final_data=final_data,
+            account_mapping=account_mapping
+        )
+        
+        # Update document
         await db.documents.update_one(
             {"id": doc_id},
             {"$set": {
                 "status": "approved",
                 "final_data": final_data,
-                "voucher_id": voucher_id,
+                "account_mapping": account_mapping,
+                "voucher_id": voucher["id"],
                 "approved_by": user["id"],
                 "approved_at": datetime.now(timezone.utc).isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }}
         )
         
-        # Log audit
-        await db.audit_logs.insert_one({
-            "id": str(uuid.uuid4()),
-            "user_id": user["id"],
-            "tenant_id": doc["tenant_id"],
-            "action": "document_approved",
-            "details": {"doc_id": doc_id, "voucher_id": voucher_id, "modifications": approval.modifications},
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        })
+        # Log approval
+        await ActivityService.log(
+            user_id=user["id"],
+            activity_type=ActivityType.INVOICE_APPROVED,
+            entity_type="document",
+            entity_id=doc_id,
+            tenant_id=doc["tenant_id"],
+            details={
+                "voucher_id": voucher["id"],
+                "total_amount": final_data.get("total_amount")
+            }
+        )
         
-        return {"message": "Document approved", "voucher_id": voucher_id}
+        return {
+            "message": "Document approved",
+            "voucher_id": voucher["id"],
+            "voucher_status": voucher["status"],
+            "voucher_preview": voucher["preview"]
+        }
     else:
         await db.documents.update_one(
             {"id": doc_id},
@@ -923,7 +1716,155 @@ async def approve_document(doc_id: str, approval: DocumentApproval, user: dict =
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }}
         )
+        
+        await ActivityService.log(
+            user_id=user["id"],
+            activity_type=ActivityType.INVOICE_REJECTED,
+            entity_type="document",
+            entity_id=doc_id,
+            tenant_id=doc["tenant_id"],
+            details={}
+        )
+        
         return {"message": "Document rejected"}
+
+# ==================== VOUCHER ROUTES ====================
+
+@voucher_router.get("/{tenant_id}")
+async def get_vouchers(
+    tenant_id: str,
+    status: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not tenant or (user["id"] not in tenant.get("users", []) and user["role"] != UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    vouchers = await VoucherService.get_tenant_vouchers(tenant_id, status)
+    return vouchers
+
+@voucher_router.get("/{tenant_id}/{voucher_id}")
+async def get_voucher_detail(tenant_id: str, voucher_id: str, user: dict = Depends(get_current_user)):
+    tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not tenant or (user["id"] not in tenant.get("users", []) and user["role"] != UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    voucher = await VoucherService.get_voucher(voucher_id)
+    if not voucher or voucher["tenant_id"] != tenant_id:
+        raise HTTPException(status_code=404, detail="Voucher not found")
+    
+    return voucher
+
+@voucher_router.post("/{tenant_id}/push")
+async def push_voucher_to_accounting(
+    tenant_id: str,
+    push_request: VoucherPushRequest,
+    user: dict = Depends(get_current_user)
+):
+    """Push voucher to accounting system (when connected)"""
+    tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not tenant or (user["id"] not in tenant.get("users", []) and user["role"] != UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    voucher = await VoucherService.get_voucher(push_request.voucher_id)
+    if not voucher or voucher["tenant_id"] != tenant_id:
+        raise HTTPException(status_code=404, detail="Voucher not found")
+    
+    if voucher["status"] != VoucherStatus.READY_TO_PUSH:
+        raise HTTPException(status_code=400, detail=f"Voucher status is {voucher['status']}, cannot push")
+    
+    # Get provider
+    config = tenant.get("provider_config") or {}
+    provider = get_accounting_provider(config.get("provider_type", ProviderType.ECONOMIC), config)
+    
+    # Attempt to push
+    result = await provider.push_voucher(voucher["id"])
+    
+    if result.get("success"):
+        await db.vouchers.update_one(
+            {"id": voucher["id"]},
+            {"$set": {
+                "status": VoucherStatus.PUSHED,
+                "pushed_at": datetime.now(timezone.utc).isoformat(),
+                "external_id": result.get("external_id"),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+        await ActivityService.log(
+            user_id=user["id"],
+            activity_type=ActivityType.VOUCHER_PUSHED,
+            entity_type="voucher",
+            entity_id=voucher["id"],
+            tenant_id=tenant_id,
+            details={"external_id": result.get("external_id")}
+        )
+    
+    return result
+
+# ==================== VENDOR ROUTES ====================
+
+@vendor_router.get("/{tenant_id}")
+async def get_vendor_patterns(tenant_id: str, user: dict = Depends(get_current_user)):
+    tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not tenant or (user["id"] not in tenant.get("users", []) and user["role"] != UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    patterns = await db.vendor_patterns.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(1000)
+    return patterns
+
+@vendor_router.put("/{tenant_id}/{pattern_id}")
+async def update_vendor_pattern(
+    tenant_id: str,
+    pattern_id: str,
+    update: VendorPatternUpdate,
+    user: dict = Depends(get_current_user)
+):
+    tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not tenant or (user["id"] not in tenant.get("users", []) and user["role"] != UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    updates = {f"learned_{k}": v for k, v in update.model_dump().items() if v is not None}
+    updates["last_used"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.vendor_patterns.update_one(
+        {"id": pattern_id, "tenant_id": tenant_id},
+        {"$set": updates}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Pattern not found")
+    
+    return {"message": "Pattern updated"}
+
+# ==================== ACTIVITY ROUTES ====================
+
+@activity_router.get("/{tenant_id}")
+async def get_activity_logs(
+    tenant_id: str,
+    activity_type: Optional[str] = None,
+    limit: int = 100,
+    user: dict = Depends(get_current_user)
+):
+    tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not tenant or (user["id"] not in tenant.get("users", []) and user["role"] != UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    activities = await ActivityService.get_activities(
+        tenant_id=tenant_id,
+        activity_type=activity_type,
+        limit=limit
+    )
+    return activities
+
+@activity_router.get("/{tenant_id}/time-saved")
+async def get_time_saved(tenant_id: str, days: int = 30, user: dict = Depends(get_current_user)):
+    tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not tenant or (user["id"] not in tenant.get("users", []) and user["role"] != UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    time_saved = await ActivityService.calculate_time_saved(tenant_id, days)
+    return time_saved
 
 # ==================== RECONCILIATION ROUTES ====================
 
@@ -933,19 +1874,16 @@ async def get_unmatched_transactions(tenant_id: str, user: dict = Depends(get_cu
     if not tenant or (user["id"] not in tenant.get("users", []) and user["role"] != UserRole.ADMIN):
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Get unmatched bank transactions
     transactions = await db.transactions.find(
         {"tenant_id": tenant_id, "matched": False},
         {"_id": 0}
     ).to_list(1000)
     
-    # Get approved invoices for matching suggestions
     invoices = await db.documents.find(
         {"tenant_id": tenant_id, "status": "approved"},
         {"_id": 0, "id": 1, "extracted_data": 1, "filename": 1}
     ).to_list(1000)
     
-    # Generate match suggestions using fuzzy matching
     suggestions = []
     for tx in transactions:
         tx_amount = tx.get("amount", 0)
@@ -956,10 +1894,7 @@ async def get_unmatched_transactions(tenant_id: str, user: dict = Depends(get_cu
             inv_amount = inv_data.get("total_amount", 0) or 0
             inv_supplier = (inv_data.get("supplier_name") or "").lower()
             
-            # Amount tolerance (within 1%)
             amount_match = abs(tx_amount - inv_amount) / max(inv_amount, 1) < 0.01 if inv_amount > 0 else False
-            
-            # Text similarity (simple containment check)
             text_match = inv_supplier in tx_desc or any(word in tx_desc for word in inv_supplier.split())
             
             if amount_match or text_match:
@@ -982,7 +1917,6 @@ async def match_transaction(tenant_id: str, match: TransactionMatch, user: dict 
     if not tenant or (user["id"] not in tenant.get("users", []) and user["role"] != UserRole.ADMIN):
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Update transaction as matched
     await db.transactions.update_one(
         {"id": match.transaction_id, "tenant_id": tenant_id},
         {"$set": {
@@ -994,7 +1928,6 @@ async def match_transaction(tenant_id: str, match: TransactionMatch, user: dict 
         }}
     )
     
-    # Create reconciliation record
     recon_id = str(uuid.uuid4())
     await db.reconciliations.insert_one({
         "id": recon_id,
@@ -1044,7 +1977,6 @@ async def get_vat_analysis(
     if not tenant or (user["id"] not in tenant.get("users", []) and user["role"] != UserRole.ADMIN):
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Default to current quarter
     if not period_start:
         now = datetime.now(timezone.utc)
         quarter_start = datetime(now.year, ((now.month - 1) // 3) * 3 + 1, 1, tzinfo=timezone.utc)
@@ -1052,7 +1984,6 @@ async def get_vat_analysis(
     if not period_end:
         period_end = datetime.now(timezone.utc).isoformat()
     
-    # Aggregate VAT data from approved documents
     pipeline = [
         {"$match": {
             "tenant_id": tenant_id,
@@ -1071,10 +2002,8 @@ async def get_vat_analysis(
     result = await db.documents.aggregate(pipeline).to_list(1)
     stats = result[0] if result else {"total_net": 0, "total_vat": 0, "total_amount": 0, "doc_count": 0}
     
-    # Detect anomalies
     anomalies = []
     
-    # Check for unusual VAT rates
     docs_with_issues = await db.documents.find({
         "tenant_id": tenant_id,
         "status": "approved",
@@ -1090,7 +2019,6 @@ async def get_vat_analysis(
             "details": "VAT amount doesn't match expected 25% rate"
         })
     
-    # Check for duplicates
     duplicate_docs = await db.documents.find({
         "tenant_id": tenant_id,
         "ai_suggestions.is_duplicate": True
@@ -1105,10 +2033,8 @@ async def get_vat_analysis(
             "details": "Potential duplicate invoice detected"
         })
     
-    # Calculate risk score (0-100)
     risk_score = min(100, len(anomalies) * 15)
     
-    # Generate AI risk summary
     vat_data = {
         "period": f"{period_start} to {period_end}",
         "total_purchases": stats["total_net"],
@@ -1146,10 +2072,8 @@ async def generate_vat_report(
     if not tenant or (user["id"] not in tenant.get("users", []) and user["role"] != UserRole.ADMIN):
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Get VAT analysis
     analysis = await get_vat_analysis(tenant_id, period_start, period_end, user)
     
-    # Store report
     report_id = str(uuid.uuid4())
     report = {
         "id": report_id,
@@ -1164,7 +2088,7 @@ async def generate_vat_report(
     
     return {"report_id": report_id, "data": analysis}
 
-# ==================== BILLING ROUTES ====================
+# ==================== BILLING ROUTES (ADMIN-ACTIVATED) ====================
 
 SUBSCRIPTION_PLANS = [
     {
@@ -1184,11 +2108,11 @@ SUBSCRIPTION_PLANS = [
         "limits": {"documents_per_month": 200, "companies": 5}
     },
     {
-        "id": "enterprise",
-        "name": "Enterprise",
-        "price": 1999,
+        "id": "accountant",
+        "name": "Accountant",
+        "price": 1499,
         "currency": "dkk",
-        "features": ["Unlimited documents", "Unlimited companies", "Dedicated support", "Full suite"],
+        "features": ["Unlimited documents", "Unlimited companies", "Multi-client dashboard", "Full suite"],
         "limits": {"documents_per_month": 999999, "companies": 999999}
     }
 ]
@@ -1197,63 +2121,71 @@ SUBSCRIPTION_PLANS = [
 async def get_subscription_plans():
     return [SubscriptionPlan(**plan) for plan in SUBSCRIPTION_PLANS]
 
-@billing_router.post("/subscribe")
-async def create_subscription(data: SubscriptionCreate, user: dict = Depends(get_current_user)):
-    plan = next((p for p in SUBSCRIPTION_PLANS if p["id"] == data.plan_id), None)
-    if not plan:
-        raise HTTPException(status_code=400, detail="Invalid plan")
-    
-    # Check if user already has subscription
-    existing = await db.subscriptions.find_one({"user_id": user["id"], "status": "active"})
-    if existing:
-        raise HTTPException(status_code=400, detail="Already subscribed")
-    
-    # Check if Stripe is properly configured (skip if placeholder key)
-    stripe_configured = stripe.api_key and not stripe.api_key.startswith('sk_test_placeholder')
-    
-    customer_id = None
-    if stripe_configured:
-        # Create Stripe customer if not exists
-        user_billing = await db.billing.find_one({"user_id": user["id"]})
-        if not user_billing:
-            try:
-                customer_id = await payment_provider.create_customer(user["email"], user["name"])
-                await db.billing.insert_one({
-                    "user_id": user["id"],
-                    "stripe_customer_id": customer_id,
-                    "created_at": datetime.now(timezone.utc).isoformat()
-                })
-            except Exception as e:
-                logger.warning(f"Stripe customer creation failed: {e}. Proceeding with demo mode.")
-                customer_id = f"demo_cus_{uuid.uuid4().hex[:12]}"
-        else:
-            customer_id = user_billing["stripe_customer_id"]
-    else:
-        # Demo mode - generate mock customer ID
-        customer_id = f"demo_cus_{uuid.uuid4().hex[:12]}"
-    
-    # Create subscription (demo mode for now)
-    subscription_id = str(uuid.uuid4())
-    await db.subscriptions.insert_one({
-        "id": subscription_id,
-        "user_id": user["id"],
-        "plan_id": data.plan_id,
-        "status": "active",
-        "current_period_start": datetime.now(timezone.utc).isoformat(),
-        "current_period_end": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
-        "created_at": datetime.now(timezone.utc).isoformat()
-    })
-    
-    return {"subscription_id": subscription_id, "status": "active", "plan": plan}
-
 @billing_router.get("/subscription")
 async def get_current_subscription(user: dict = Depends(get_current_user)):
     subscription = await db.subscriptions.find_one({"user_id": user["id"], "status": "active"}, {"_id": 0})
     if not subscription:
-        return {"subscription": None}
+        return {"subscription": None, "plan": None}
     
     plan = next((p for p in SUBSCRIPTION_PLANS if p["id"] == subscription["plan_id"]), None)
-    return {"subscription": subscription, "plan": plan}
+    
+    # Calculate usage
+    tenant_count = await db.tenants.count_documents({"users": user["id"]})
+    
+    now = datetime.now(timezone.utc)
+    month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc).isoformat()
+    
+    user_tenants = await db.tenants.find({"users": user["id"]}, {"id": 1, "_id": 0}).to_list(100)
+    tenant_ids = [t["id"] for t in user_tenants]
+    
+    doc_count = await db.documents.count_documents({
+        "tenant_id": {"$in": tenant_ids},
+        "created_at": {"$gte": month_start}
+    })
+    
+    return {
+        "subscription": {
+            "id": subscription["id"],
+            "user_id": subscription["user_id"],
+            "plan_id": subscription["plan_id"],
+            "plan_name": plan["name"] if plan else "Unknown",
+            "status": subscription["status"],
+            "activated_by": subscription.get("activated_by"),
+            "activated_at": subscription.get("activated_at"),
+            "current_period_start": subscription["current_period_start"],
+            "current_period_end": subscription["current_period_end"],
+            "usage": {
+                "documents_this_month": doc_count,
+                "companies": tenant_count
+            },
+            "limits": plan["limits"] if plan else {}
+        },
+        "plan": plan
+    }
+
+@billing_router.post("/request")
+async def request_subscription(plan_id: str, user: dict = Depends(get_current_user)):
+    """Request subscription - admin will activate"""
+    plan = next((p for p in SUBSCRIPTION_PLANS if p["id"] == plan_id), None)
+    if not plan:
+        raise HTTPException(status_code=400, detail="Invalid plan")
+    
+    existing = await db.subscriptions.find_one({"user_id": user["id"], "status": {"$in": ["active", "pending"]}})
+    if existing:
+        raise HTTPException(status_code=400, detail="Already have an active or pending subscription")
+    
+    request_id = str(uuid.uuid4())
+    await db.subscription_requests.insert_one({
+        "id": request_id,
+        "user_id": user["id"],
+        "user_email": user["email"],
+        "user_name": user["name"],
+        "plan_id": plan_id,
+        "status": "pending",
+        "requested_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return {"message": "Subscription request submitted", "request_id": request_id, "status": "pending"}
 
 @billing_router.delete("/subscription")
 async def cancel_subscription(user: dict = Depends(get_current_user)):
@@ -1280,13 +2212,17 @@ async def get_admin_stats():
     user_count = await db.users.count_documents({})
     tenant_count = await db.tenants.count_documents({})
     doc_count = await db.documents.count_documents({})
+    voucher_count = await db.vouchers.count_documents({})
     subscription_count = await db.subscriptions.count_documents({"status": "active"})
+    pending_requests = await db.subscription_requests.count_documents({"status": "pending"})
     
     return {
         "total_users": user_count,
         "total_tenants": tenant_count,
         "total_documents": doc_count,
-        "active_subscriptions": subscription_count
+        "total_vouchers": voucher_count,
+        "active_subscriptions": subscription_count,
+        "pending_subscription_requests": pending_requests
     }
 
 @admin_router.put("/users/{user_id}/role")
@@ -1300,57 +2236,124 @@ async def update_user_role(user_id: str, role: str, admin: dict = Depends(requir
     
     return {"message": "Role updated"}
 
+@admin_router.get("/subscription-requests", dependencies=[Depends(require_role([UserRole.ADMIN]))])
+async def get_subscription_requests():
+    requests = await db.subscription_requests.find({}, {"_id": 0}).sort("requested_at", -1).to_list(100)
+    return requests
+
+@admin_router.post("/subscriptions/activate", dependencies=[Depends(require_role([UserRole.ADMIN]))])
+async def admin_activate_subscription(data: AdminSubscriptionActivate, admin: dict = Depends(require_role([UserRole.ADMIN]))):
+    """Admin manually activates a subscription"""
+    plan = next((p for p in SUBSCRIPTION_PLANS if p["id"] == data.plan_id), None)
+    if not plan:
+        raise HTTPException(status_code=400, detail="Invalid plan")
+    
+    target_user = await db.users.find_one({"id": data.user_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Deactivate existing subscription
+    await db.subscriptions.update_many(
+        {"user_id": data.user_id, "status": "active"},
+        {"$set": {"status": "superseded"}}
+    )
+    
+    # Create new subscription
+    subscription_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    
+    await db.subscriptions.insert_one({
+        "id": subscription_id,
+        "user_id": data.user_id,
+        "plan_id": data.plan_id,
+        "status": "active",
+        "activated_by": admin["id"],
+        "activated_at": now.isoformat(),
+        "activation_notes": data.notes,
+        "current_period_start": now.isoformat(),
+        "current_period_end": (now + timedelta(days=30)).isoformat(),
+        "created_at": now.isoformat()
+    })
+    
+    # Update any pending requests
+    await db.subscription_requests.update_many(
+        {"user_id": data.user_id, "status": "pending"},
+        {"$set": {"status": "approved", "approved_at": now.isoformat(), "approved_by": admin["id"]}}
+    )
+    
+    await ActivityService.log(
+        user_id=data.user_id,
+        activity_type=ActivityType.SUBSCRIPTION_ACTIVATED,
+        entity_type="subscription",
+        entity_id=subscription_id,
+        details={"plan_id": data.plan_id, "activated_by": admin["email"]}
+    )
+    
+    return {
+        "message": "Subscription activated",
+        "subscription_id": subscription_id,
+        "plan": plan["name"],
+        "user_email": target_user["email"]
+    }
+
 # ==================== DASHBOARD ROUTES ====================
 
 @api_router.get("/dashboard/stats", response_model=DashboardStats)
 async def get_dashboard_stats(user: dict = Depends(get_current_user)):
-    # Get user's tenants
     if user["role"] == UserRole.ADMIN:
         tenant_ids = [t["id"] for t in await db.tenants.find({}, {"id": 1, "_id": 0}).to_list(1000)]
     else:
         tenant_ids = [t["id"] for t in await db.tenants.find({"users": user["id"]}, {"id": 1, "_id": 0}).to_list(100)]
     
-    # Document stats
     total_docs = await db.documents.count_documents({"tenant_id": {"$in": tenant_ids}})
     pending_docs = await db.documents.count_documents({"tenant_id": {"$in": tenant_ids}, "status": "review"})
     processed_docs = await db.documents.count_documents({"tenant_id": {"$in": tenant_ids}, "status": "approved"})
     
-    # Transaction stats
+    total_vouchers = await db.vouchers.count_documents({"tenant_id": {"$in": tenant_ids}})
+    ready_vouchers = await db.vouchers.count_documents({"tenant_id": {"$in": tenant_ids}, "status": VoucherStatus.READY_TO_PUSH})
+    
     total_tx = await db.transactions.count_documents({"tenant_id": {"$in": tenant_ids}})
     unmatched_tx = await db.transactions.count_documents({"tenant_id": {"$in": tenant_ids}, "matched": False})
     
-    # Calculate average risk score
     risk_scores = []
-    for tid in tenant_ids[:5]:  # Limit for performance
+    for tid in tenant_ids[:5]:
         analysis = await db.vat_reports.find_one({"tenant_id": tid}, {"_id": 0, "data.risk_score": 1}, sort=[("generated_at", -1)])
         if analysis and "data" in analysis:
             risk_scores.append(analysis["data"].get("risk_score", 0))
     
     avg_risk = sum(risk_scores) / len(risk_scores) if risk_scores else 0
     
-    # Estimate time saved (approx 5 min per document)
-    time_saved = processed_docs * 5 / 60
+    # Calculate time saved from activity logs
+    time_saved_data = {"total_hours": 0, "breakdown": {}}
+    if tenant_ids:
+        for tid in tenant_ids[:5]:
+            ts = await ActivityService.calculate_time_saved(tid, 30)
+            time_saved_data["total_hours"] += ts.get("total_hours", 0)
+            for k, v in ts.get("breakdown", {}).items():
+                time_saved_data["breakdown"][k] = time_saved_data["breakdown"].get(k, 0) + v
     
     return DashboardStats(
         total_documents=total_docs,
         pending_documents=pending_docs,
         processed_documents=processed_docs,
+        total_vouchers=total_vouchers,
+        ready_to_push_vouchers=ready_vouchers,
         total_transactions=total_tx,
         unmatched_transactions=unmatched_tx,
         vat_risk_score=avg_risk,
-        time_saved_hours=round(time_saved, 1)
+        time_saved_hours=round(time_saved_data["total_hours"], 1),
+        time_saved_breakdown=time_saved_data["breakdown"]
     )
-
-# ==================== ACCOUNTANT DASHBOARD ====================
 
 @api_router.get("/accountant/overview")
 async def get_accountant_overview(user: dict = Depends(require_role([UserRole.ACCOUNTANT, UserRole.ADMIN]))):
-    # Get all tenants this accountant manages
     tenants = await db.tenants.find({"users": user["id"]}, {"_id": 0}).to_list(100)
     
     overview = []
     for tenant in tenants:
         pending = await db.documents.count_documents({"tenant_id": tenant["id"], "status": "review"})
+        ready_vouchers = await db.vouchers.count_documents({"tenant_id": tenant["id"], "status": VoucherStatus.READY_TO_PUSH})
+        
         risk_report = await db.vat_reports.find_one(
             {"tenant_id": tenant["id"]},
             {"_id": 0, "data.risk_score": 1, "data.anomalies": 1},
@@ -1361,11 +2364,12 @@ async def get_accountant_overview(user: dict = Depends(require_role([UserRole.AC
             "tenant_id": tenant["id"],
             "tenant_name": tenant["name"],
             "pending_documents": pending,
+            "ready_vouchers": ready_vouchers,
+            "provider_configured": bool(tenant.get("provider_config")),
             "risk_score": risk_report["data"]["risk_score"] if risk_report else 0,
             "anomalies_count": len(risk_report["data"].get("anomalies", [])) if risk_report else 0
         })
     
-    # Sort by pending documents and risk
     overview.sort(key=lambda x: (-x["pending_documents"], -x["risk_score"]))
     
     return {"clients": overview, "total_clients": len(tenants)}
@@ -1374,13 +2378,13 @@ async def get_accountant_overview(user: dict = Depends(require_role([UserRole.AC
 
 @api_router.get("/")
 async def root():
-    return {"message": "AI Accounting Copilot API", "version": "1.0.0"}
+    return {"message": "AI Accounting Copilot API", "version": "2.0.0-beta"}
 
 @api_router.get("/health")
 async def health_check():
     try:
         await db.command("ping")
-        return {"status": "healthy", "database": "connected"}
+        return {"status": "healthy", "database": "connected", "version": "2.0.0-beta"}
     except Exception as e:
         return {"status": "unhealthy", "database": str(e)}
 
@@ -1389,6 +2393,9 @@ async def health_check():
 api_router.include_router(auth_router)
 api_router.include_router(tenant_router)
 api_router.include_router(document_router)
+api_router.include_router(voucher_router)
+api_router.include_router(vendor_router)
+api_router.include_router(activity_router)
 api_router.include_router(reconciliation_router)
 api_router.include_router(vat_router)
 api_router.include_router(billing_router)
