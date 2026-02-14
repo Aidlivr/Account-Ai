@@ -164,7 +164,7 @@ class TestExportAPI:
             "password": TEST_USER_PASSWORD
         })
         if response.status_code == 200:
-            return response.json()["token"]
+            return response.json()["access_token"]
         pytest.skip("Could not authenticate beta user")
     
     @pytest.fixture
@@ -256,7 +256,7 @@ class TestEmailLogsAPI:
             "password": TEST_USER_PASSWORD
         })
         if response.status_code == 200:
-            return response.json()["token"]
+            return response.json()["access_token"]
         pytest.skip("Could not authenticate beta user")
     
     def test_get_email_logs_requires_admin(self, auth_token):
@@ -306,7 +306,7 @@ class TestBetaBannerIntegration:
             "password": TEST_USER_PASSWORD
         })
         if response.status_code == 200:
-            return response.json()["token"]
+            return response.json()["access_token"]
         pytest.skip("Could not authenticate beta user")
     
     def test_feedback_triggers_email_notification(self, auth_token):
@@ -339,7 +339,7 @@ class TestDashboardWithBetaBanner:
             "password": TEST_USER_PASSWORD
         })
         if response.status_code == 200:
-            return response.json()["token"]
+            return response.json()["access_token"]
         pytest.skip("Could not authenticate beta user")
     
     def test_dashboard_stats(self, auth_token):
