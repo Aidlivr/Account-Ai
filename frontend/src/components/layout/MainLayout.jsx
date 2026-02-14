@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Sidebar } from './Sidebar';
 import { Toaster } from '../ui/sonner';
+import { BetaBanner } from '../beta/BetaBanner';
+import { FeedbackDialog } from '../beta/FeedbackDialog';
 
 export const MainLayout = () => {
     const { isAuthenticated, loading } = useAuth();
+    const [feedbackOpen, setFeedbackOpen] = useState(false);
+    const [bugReportOpen, setBugReportOpen] = useState(false);
 
     if (loading) {
         return (
@@ -24,6 +28,10 @@ export const MainLayout = () => {
 
     return (
         <div className="min-h-screen bg-background">
+            <BetaBanner 
+                onOpenFeedback={() => setFeedbackOpen(true)}
+                onOpenBugReport={() => setBugReportOpen(true)}
+            />
             <Sidebar />
             <main className="ml-64 min-h-screen">
                 <div className="p-8">
@@ -31,6 +39,18 @@ export const MainLayout = () => {
                 </div>
             </main>
             <Toaster position="top-right" richColors />
+            
+            {/* Feedback Dialogs */}
+            <FeedbackDialog 
+                open={feedbackOpen} 
+                onOpenChange={setFeedbackOpen}
+                type="feedback"
+            />
+            <FeedbackDialog 
+                open={bugReportOpen} 
+                onOpenChange={setBugReportOpen}
+                type="bug"
+            />
         </div>
     );
 };
