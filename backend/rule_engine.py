@@ -403,6 +403,16 @@ class DeterministicRuleEngine:
     def _apply_account_category_rules(self, result: Dict, text_lower: str) -> Dict:
         """Determine account based on keyword category matching"""
         
+        # Special case: EU goods purchases (account 4100)
+        if result.get("vat_code") == "IEU":
+            eu_goods_keywords = ["laptop", "probook", "hardware", "equipment", "lieferung", 
+                                "delivery", "artikel", "produkt", "stück", "stk"]
+            if any(kw in text_lower for kw in eu_goods_keywords):
+                result["suggested_account"] = "4100"
+                result["suggested_account_name"] = "Varekøb EU"
+                result["_rules_applied"].append("account_rule:eu_goods_purchase")
+                return result
+        
         # Score each category
         category_scores: Dict[AccountCategory, int] = {}
         
