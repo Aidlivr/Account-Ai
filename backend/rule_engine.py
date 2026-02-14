@@ -157,7 +157,8 @@ ACCOUNT_CATEGORY_KEYWORDS: Dict[AccountCategory, List[str]] = {
     AccountCategory.SUBCONTRACTOR: [
         "underentreprenør", "subcontractor", "fremmed arbejde", "entreprise",
         "håndværker", "el-installation", "vvs", "murer", "tømrer",
-        "maler", "nedrivning"
+        "maler", "nedrivning", "vandhaner", "rør og fittings",
+        "vedligeholdelse", "reparation bygning"
     ],
     AccountCategory.PERSONNEL: [
         "personale", "staff", "medarbejder", "employee", "kantine",
