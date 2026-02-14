@@ -364,7 +364,7 @@ class AIAccountingAPITester:
 
     def run_all_tests(self):
         """Run all API tests"""
-        print("🚀 Starting AI Accounting Copilot API Tests")
+        print("🚀 Starting AI Accounting Copilot Beta-Ready MVP API Tests")
         print(f"Testing against: {self.base_url}")
         print("=" * 60)
         
@@ -383,13 +383,32 @@ class AIAccountingAPITester:
         self.test_create_tenant()
         self.test_get_user_tenants()
         
+        # Provider configuration tests
+        self.test_provider_config()
+        
+        # Document workflow tests
+        self.test_document_upload()
+        self.test_get_documents()
+        self.test_document_edit_fields()
+        self.test_document_approval()
+        
+        # Voucher tests
+        self.test_get_vouchers()
+        
+        # Activity and analytics tests
+        self.test_activity_logs()
+        self.test_time_saved_calculation()
+        self.test_vendor_patterns()
+        
         # Dashboard tests
         self.test_dashboard_stats()
         
         # Billing tests
         self.test_billing_plans()
-        self.test_create_subscription()
         self.test_get_current_subscription()
+        
+        # Admin tests
+        self.test_admin_subscription_activation()
         
         # Print summary
         print("\n" + "=" * 60)
