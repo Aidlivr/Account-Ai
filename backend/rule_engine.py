@@ -150,7 +150,9 @@ ACCOUNT_CATEGORY_KEYWORDS: Dict[AccountCategory, List[str]] = {
     ],
     AccountCategory.RAW_MATERIALS: [
         "vare", "goods", "materiale", "material", "råvare", "lager",
-        "komponenter", "dele", "parts", "indkøb varer"
+        "komponenter", "dele", "parts", "indkøb varer",
+        "varekøb", "eu-erhverv", "innergemeinschaftliche", "eu-leverance",
+        "laptop", "probook", "docking", "backpack"
     ],
     AccountCategory.SUBCONTRACTOR: [
         "underentreprenør", "subcontractor", "fremmed arbejde", "entreprise",
