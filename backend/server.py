@@ -1208,19 +1208,31 @@ async def create_subscription(data: SubscriptionCreate, user: dict = Depends(get
     if existing:
         raise HTTPException(status_code=400, detail="Already subscribed")
     
-    # Create Stripe customer if not exists
-    user_billing = await db.billing.find_one({"user_id": user["id"]})
-    if not user_billing:
-        customer_id = await payment_provider.create_customer(user["email"], user["name"])
-        await db.billing.insert_one({
-            "user_id": user["id"],
-            "stripe_customer_id": customer_id,
-            "created_at": datetime.now(timezone.utc).isoformat()
-        })
-    else:
-        customer_id = user_billing["stripe_customer_id"]
+    # Check if Stripe is properly configured (skip if placeholder key)
+    stripe_configured = stripe.api_key and not stripe.api_key.startswith('sk_test_placeholder')
     
-    # For demo purposes, create subscription directly
+    customer_id = None
+    if stripe_configured:
+        # Create Stripe customer if not exists
+        user_billing = await db.billing.find_one({"user_id": user["id"]})
+        if not user_billing:
+            try:
+                customer_id = await payment_provider.create_customer(user["email"], user["name"])
+                await db.billing.insert_one({
+                    "user_id": user["id"],
+                    "stripe_customer_id": customer_id,
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                })
+            except Exception as e:
+                logger.warning(f"Stripe customer creation failed: {e}. Proceeding with demo mode.")
+                customer_id = f"demo_cus_{uuid.uuid4().hex[:12]}"
+        else:
+            customer_id = user_billing["stripe_customer_id"]
+    else:
+        # Demo mode - generate mock customer ID
+        customer_id = f"demo_cus_{uuid.uuid4().hex[:12]}"
+    
+    # Create subscription (demo mode for now)
     subscription_id = str(uuid.uuid4())
     await db.subscriptions.insert_one({
         "id": subscription_id,
