@@ -2388,6 +2388,280 @@ async def health_check():
     except Exception as e:
         return {"status": "unhealthy", "database": str(e)}
 
+# ==================== BETA FEATURES ====================
+
+# Feedback Router
+feedback_router = APIRouter(prefix="/feedback", tags=["Feedback"])
+
+class FeedbackSubmission(BaseModel):
+    type: str  # feedback, bug_report
+    rating: Optional[int] = None
+    category: str
+    message: str
+    page_context: Optional[str] = None
+    user_agent: Optional[str] = None
+    timestamp: Optional[str] = None
+
+@feedback_router.post("")
+async def submit_feedback(feedback: FeedbackSubmission, user: dict = Depends(get_current_user)):
+    """Submit beta feedback or bug report"""
+    feedback_doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": user["id"],
+        "user_email": user["email"],
+        "type": feedback.type,
+        "rating": feedback.rating,
+        "category": feedback.category,
+        "message": feedback.message,
+        "page_context": feedback.page_context,
+        "user_agent": feedback.user_agent,
+        "status": "new",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.feedback.insert_one(feedback_doc)
+    
+    # Log for monitoring
+    logger.info(f"[FEEDBACK] User {user['email']} submitted {feedback.type}: {feedback.category}")
+    
+    # Mock email notification to admin
+    await MockEmailService.send_email(
+        to="admin@ai-accounting-copilot.com",
+        subject=f"New {feedback.type.replace('_', ' ').title()} from {user['email']}",
+        body=f"""
+New feedback received:
+- Type: {feedback.type}
+- Category: {feedback.category}
+- Rating: {feedback.rating or 'N/A'}
+- Message: {feedback.message}
+- Page: {feedback.page_context}
+- User: {user['email']}
+"""
+    )
+    
+    return {"success": True, "id": feedback_doc["id"], "message": "Feedback received. Thank you!"}
+
+@feedback_router.get("")
+async def get_all_feedback(user: dict = Depends(require_role([UserRole.ADMIN]))):
+    """Admin endpoint to view all feedback"""
+    feedback_list = await db.feedback.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return {"feedback": feedback_list, "total": len(feedback_list)}
+
+# Export Router
+export_router = APIRouter(prefix="/export", tags=["Export"])
+
+class ExportRequest(BaseModel):
+    format: str = "csv"  # csv or pdf
+    voucher_ids: Optional[List[str]] = None
+
+@export_router.post("/{tenant_id}/vouchers")
+async def export_vouchers(tenant_id: str, request: ExportRequest, user: dict = Depends(get_current_user)):
+    """Export vouchers as CSV or PDF"""
+    # Verify tenant access
+    tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not tenant or (user["id"] not in tenant.get("users", []) and user["role"] != UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get vouchers
+    query = {"tenant_id": tenant_id}
+    if request.voucher_ids:
+        query["id"] = {"$in": request.voucher_ids}
+    
+    vouchers = await db.vouchers.find(query, {"_id": 0}).to_list(1000)
+    
+    if not vouchers:
+        raise HTTPException(status_code=404, detail="No vouchers found to export")
+    
+    if request.format == "csv":
+        return export_vouchers_csv(vouchers, tenant["name"])
+    else:
+        return export_vouchers_pdf(vouchers, tenant["name"])
+
+def export_vouchers_csv(vouchers: List[Dict], tenant_name: str) -> str:
+    """Generate CSV export of vouchers"""
+    import io
+    import csv
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow([
+        "Voucher ID", "Supplier", "CVR", "Invoice #", "Invoice Date", 
+        "Due Date", "Net Amount", "VAT Amount", "Total Amount", "Currency",
+        "Account Code", "Account Name", "Status", "Created At"
+    ])
+    
+    # Data rows
+    for v in vouchers:
+        data = v.get("voucher_data", {})
+        mapping = v.get("account_mapping", {})
+        writer.writerow([
+            v.get("id", ""),
+            data.get("supplier_name", ""),
+            data.get("cvr_number", ""),
+            data.get("invoice_number", ""),
+            data.get("invoice_date", ""),
+            data.get("due_date", ""),
+            data.get("net_amount", 0),
+            data.get("vat_amount", 0),
+            data.get("total_amount", 0),
+            data.get("currency", "DKK"),
+            mapping.get("account_code", ""),
+            mapping.get("account_name", ""),
+            v.get("status", ""),
+            v.get("created_at", "")
+        ])
+    
+    return output.getvalue()
+
+def export_vouchers_pdf(vouchers: List[Dict], tenant_name: str) -> Dict[str, Any]:
+    """Generate simple PDF export of vouchers (base64 encoded)"""
+    # Simple text-based PDF generation
+    pdf_content = f"""AI Accounting Copilot - Voucher Export
+Company: {tenant_name}
+Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC
+Total Vouchers: {len(vouchers)}
+{'='*60}
+
+"""
+    
+    for i, v in enumerate(vouchers, 1):
+        data = v.get("voucher_data", {})
+        mapping = v.get("account_mapping", {})
+        preview = v.get("preview", {})
+        
+        pdf_content += f"""
+VOUCHER #{i}
+-----------
+ID: {v.get('id', '')}
+Status: {v.get('status', '').upper()}
+
+INVOICE DETAILS:
+  Supplier: {data.get('supplier_name', 'N/A')}
+  CVR: {data.get('cvr_number', 'N/A')}
+  Invoice #: {data.get('invoice_number', 'N/A')}
+  Invoice Date: {data.get('invoice_date', 'N/A')}
+  Due Date: {data.get('due_date', 'N/A')}
+
+AMOUNTS:
+  Net Amount: {data.get('net_amount', 0):,.2f} {data.get('currency', 'DKK')}
+  VAT Amount: {data.get('vat_amount', 0):,.2f} {data.get('currency', 'DKK')}
+  Total: {data.get('total_amount', 0):,.2f} {data.get('currency', 'DKK')}
+
+ACCOUNTING:
+  Account: {mapping.get('account_code', '')} - {mapping.get('account_name', '')}
+  Balance: {'BALANCED' if preview.get('balanced') else 'UNBALANCED'}
+
+Created: {v.get('created_at', '')}
+{'='*60}
+"""
+    
+    # Encode as base64 for simple transfer
+    import base64
+    encoded = base64.b64encode(pdf_content.encode()).decode()
+    
+    return {"content": encoded, "filename": f"vouchers-{tenant_name}-{datetime.now().strftime('%Y%m%d')}.txt"}
+
+# ==================== MOCK EMAIL SERVICE ====================
+
+class MockEmailService:
+    """Mock email service that logs emails instead of sending them"""
+    
+    @staticmethod
+    async def send_email(to: str, subject: str, body: str, from_email: str = "noreply@ai-accounting-copilot.com"):
+        """Log email instead of sending"""
+        email_log = {
+            "id": str(uuid.uuid4()),
+            "to": to,
+            "from": from_email,
+            "subject": subject,
+            "body": body,
+            "status": "logged",  # In production this would be "sent"
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await db.email_logs.insert_one(email_log)
+        
+        logger.info(f"[MOCK EMAIL] To: {to}, Subject: {subject}")
+        logger.debug(f"[MOCK EMAIL BODY] {body[:200]}...")
+        
+        return {"success": True, "id": email_log["id"], "status": "logged"}
+    
+    @staticmethod
+    async def send_invoice_processed_notification(user_email: str, document_id: str, confidence: float):
+        """Send notification when invoice is processed"""
+        await MockEmailService.send_email(
+            to=user_email,
+            subject="Invoice Processed - AI Accounting Copilot",
+            body=f"""
+Your invoice has been processed successfully!
+
+Document ID: {document_id}
+AI Confidence: {confidence*100:.0f}%
+
+Please review and approve the extracted data in your dashboard.
+
+Best regards,
+AI Accounting Copilot Team
+"""
+        )
+    
+    @staticmethod
+    async def send_voucher_ready_notification(user_email: str, voucher_id: str, amount: float):
+        """Send notification when voucher is ready"""
+        await MockEmailService.send_email(
+            to=user_email,
+            subject="Voucher Ready to Push - AI Accounting Copilot",
+            body=f"""
+A new voucher is ready for your accounting system!
+
+Voucher ID: {voucher_id}
+Amount: {amount:,.2f} DKK
+
+Log in to review and push to your accounting system.
+
+Best regards,
+AI Accounting Copilot Team
+"""
+        )
+    
+    @staticmethod
+    async def send_welcome_email(user_email: str, user_name: str):
+        """Send welcome email to new users"""
+        await MockEmailService.send_email(
+            to=user_email,
+            subject="Welcome to AI Accounting Copilot (Beta)",
+            body=f"""
+Hi {user_name},
+
+Welcome to AI Accounting Copilot! 🎉
+
+You're now part of our exclusive beta program. Here's what you can do:
+
+1. Upload invoices (PDF or images)
+2. Review AI-extracted data with confidence scores
+3. Approve and create accounting vouchers
+4. Track your time savings
+
+As a beta user, your feedback is invaluable. Use the feedback button in the app to share your thoughts!
+
+Need help? Contact support@ai-accounting-copilot.com
+
+Best regards,
+The AI Accounting Copilot Team
+"""
+        )
+
+# Email Admin Router
+email_router = APIRouter(prefix="/emails", tags=["Emails"])
+
+@email_router.get("/logs")
+async def get_email_logs(user: dict = Depends(require_role([UserRole.ADMIN])), limit: int = 100):
+    """Admin endpoint to view email logs"""
+    logs = await db.email_logs.find({}, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return {"logs": logs, "total": len(logs)}
+
 # ==================== INCLUDE ROUTERS ====================
 
 api_router.include_router(auth_router)
