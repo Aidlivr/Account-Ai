@@ -1,297 +1,228 @@
 # AI Accounting Copilot - Product Requirements Document
 
-## Version: 2.1.0-beta (Beta Activation Phase Complete)
+## Version: 2.2.0-beta (Production AI Architecture Complete)
 ## Last Updated: Feb 14, 2026
 
 ## Original Problem Statement
 Build an AI Accounting Copilot SaaS with modular architecture for Danish SMEs and accountants. Focus on:
 - Upload invoice → AI extraction → Review → Approve → Voucher creation → Activity logging
 - Integration-ready architecture for e-conomic (live credentials pending)
-- Stable enough for beta testing with real accountants
+- Production-grade AI with vendor learning, validation, and Nordic expansion readiness
 
 ## Architecture
 
 ### Tech Stack
 - **Frontend:** React 19 + Tailwind CSS + Shadcn UI + Framer Motion
-- **Backend:** FastAPI (Python) v2.1.0-beta
+- **Backend:** FastAPI (Python) v2.2.0-beta
 - **Database:** MongoDB
-- **AI:** OpenAI GPT-5.2 via Emergent LLM Key
+- **AI:** OpenAI GPT-5.2 via Emergent LLM Key (Production AI Service)
 - **OCR:** Tesseract (local)
 - **Payments:** Stripe (admin-activated, live integration pending)
 - **Accounting:** e-conomic (integration-ready, credentials pending)
 - **Email:** MockEmailService (logs to DB, SendGrid pending)
 
-### Modular Architecture
+### Code Architecture
 ```
 /app
 ├── backend/
-│   └── server.py          # All backend modules (~2200 lines)
-│       ├── Auth Module
-│       ├── Tenant Module
-│       ├── Document Module (with AI confidence scoring)
-│       ├── Voucher Module (draft voucher engine)
-│       ├── Activity Module (time tracking)
-│       ├── Vendor Learning Module
-│       ├── Reconciliation Module
-│       ├── VAT Module
-│       ├── Billing Module (admin-activated)
-│       ├── Admin Module
-│       ├── Feedback Module (NEW - Beta)
-│       ├── Export Module (NEW - Beta)
-│       └── Email Module (NEW - MOCKED)
+│   ├── server.py              # Main FastAPI app (~2900 lines)
+│   ├── ai_production.py       # Production AI Service (NEW)
+│   ├── danish_accounting.py   # Chart of Accounts, VAT, Journals (NEW)
+│   ├── vat_rules.py           # Nordic VAT Rules Module (NEW)
+│   └── requirements.txt
 ├── frontend/
 │   └── src/
 │       ├── pages/
+│       │   ├── ai-dashboard/  # AI Performance Dashboard (NEW)
 │       │   ├── auth/
 │       │   ├── dashboard/
-│       │   ├── documents/ (with confidence UI)
-│       │   ├── vouchers/ (with preview & export)
-│       │   ├── activity/ (time saved)
-│       │   └── admin/ (subscription management)
+│       │   ├── documents/
+│       │   ├── vouchers/
+│       │   └── admin/
 │       └── components/
-│           ├── beta/       (NEW - BetaBanner, FeedbackDialog)
-│           ├── export/     (NEW - ExportButton)
+│           ├── beta/          # BetaBanner, FeedbackDialog
+│           ├── export/        # ExportButton
 │           └── layout/
 ```
 
-## User Personas
+## Completed Phases
 
-### SME User (sme_user)
-- Sees only own company
-- Uploads invoices
-- Reviews AI-extracted data with confidence indicators
-- Edits uncertain fields
-- Approves documents, creating vouchers
+### ✅ Phase 1-4 - MVP & Beta Ready (Previous)
+- Authentication, Multi-tenancy, Document processing
+- Draft voucher engine, Activity logging
+- Vendor learning, Billing structure
 
-### Accountant (accountant)
-- Manages multiple client companies
-- Reviews pending documents across clients
-- Monitors VAT risk scores
-- Bulk operations
+### ✅ Phase 5 - Beta Activation (Previous)
+- Beta Mode UI Banner
+- Feedback System
+- Data Export (CSV/PDF)
+- Mock Email Notifications
 
-### Admin (admin)
-- System administration
-- Manually activates subscriptions
-- Manages user roles
-- Views platform statistics
-- Access to feedback and email logs
+### ✅ Phase 6 - Production AI Architecture (Feb 14, 2026)
 
-## Core Requirements
+#### 6.1 AI Request Structure
+- Temperature: 0.1-0.2 for consistent output
+- Strict JSON-only responses
+- Automatic retry on malformed responses
+- Structured prompts with company context
 
-### ✅ Phase 1 - System Hardening (COMPLETE)
-- [x] Integration-ready accounting provider architecture
-- [x] Provider configuration panel in admin
-- [x] Simulated voucher creation engine with preview
-- [x] Encrypted storage for provider credentials
+#### 6.2 Danish Accounting Data
+- **Chart of Accounts:** 73 standard Danish accounts (kontoplan)
+  - Assets (1000-1999): 10 accounts
+  - Liabilities (2000-2999): 10 accounts
+  - Revenue (3000-3999): 5 accounts
+  - COGS (4000-4999): 5 accounts
+  - Personnel (5000-5999): 6 accounts
+  - Operating Expenses (6000-6999): 18 accounts
+  - Other Operating (7000-7999): 8 accounts
+  - Depreciation/Financial (8000-8999): 7 accounts
+  - VAT/Tax (9000-9999): 4 accounts
 
-### ✅ Phase 2 - AI Accuracy & User Control (COMPLETE)
-- [x] Field-level confidence scores (0.0-1.0)
-- [x] Highlight uncertain fields (<70% confidence)
-- [x] Manual edit before approval
-- [x] Vendor learning system
+- **VAT Codes:** 10 Danish VAT codes
+  - Input: I25, I0, IEU (EU), IREV (Reverse Charge)
+  - Output: U25, U0, UEU, UEXP
+  - Special: MOMSFRI, IKKEMOMS
 
-### ✅ Phase 3 - MVP Professionalization (COMPLETE)
-- [x] Activity logging for all actions
-- [x] Time saved calculation per activity type
-- [x] Role-based access hardening
-- [x] Error handling and loading states
+- **Journals:** 8 standard journals
+  - KOB, SALG, BANK, KASSE, LON, AFSKR, PRIMO, DIV
 
-### ✅ Phase 4 - Billing Ready (COMPLETE)
-- [x] Subscription table with 3 plans
-- [x] Admin-activated subscriptions
-- [x] Usage tracking (documents/month)
+#### 6.3 Post-Processing Rule Engine
+- Schema validation (required fields, account/VAT code verification)
+- Vendor Override Logic (auto-apply after 3+ consistent uses)
+- VAT Enforcement Rules:
+  - Reverse charge keyword detection
+  - EU acquisition detection
+  - Standard 25% Danish VAT enforcement
+- Confidence adjustment based on vendor history
 
-### ✅ Phase 5 - Beta Activation (COMPLETE - Feb 14, 2026)
-- [x] **Beta Mode UI Banner** - Prominent full-width dismissible banner
-- [x] **Feedback System** - In-app form with star rating and categories
-- [x] **Bug Report System** - AI error reporting with specific hints
-- [x] **Data Export** - CSV and PDF export for vouchers
-- [x] **Mock Email Notifications** - Log-based system (MOCKED)
-- [x] Welcome email on registration
-- [x] Shadcn Select component for consistency
+#### 6.4 Correction Learning System
+- Tracks AI vs final values for every approval
+- Updates vendor defaults after 3 consistent corrections
+- Calculates accuracy percentages (account, VAT, overall)
 
-## What's Been Implemented
+#### 6.5 Active Company Tracking
+- Tracks monthly activity for billing
+- Active = at least 1 invoice processed OR 1 voucher pushed
 
-### Authentication
-- JWT-based authentication
-- 3 roles: SME User, Accountant, Admin
-- Password reset flow
-- Token refresh
+#### 6.6 Admin AI Dashboard
+- Overall AI Accuracy %
+- Account Accuracy %
+- VAT Accuracy %
+- Average Confidence Score
+- Total Extractions
+- Error Rate %
+- Time Saved (hours)
+- Most Corrected Accounts
+- Vendor Accuracy Breakdown
 
-### Multi-Tenancy
-- Create/manage companies
-- Assign users to companies
-- Tenant data isolation
-- Provider configuration per tenant
+#### 6.7 Nordic VAT Module (Future-Ready)
+- Modular VATRuleEngine interface
+- DK (Denmark): ACTIVE - 25% standard rate
+- SE (Sweden): PREPARED - 25%, 12%, 6% rates
+- NO (Norway): PREPARED - 25%, 15%, 12% rates
 
-### Document Processing (Enhanced)
-- Upload PDF/image invoices
-- Tesseract OCR extraction
-- AI extraction with **field-level confidence scores**
-- CVR validation (Danish 8-digit)
-- VAT consistency check (25%)
-- Duplicate detection
-- **Manual field editing before approval**
-- **Vendor pattern learning on approval**
+## API Endpoints (v2.2.0-beta)
 
-### Voucher Engine
-- Draft voucher creation on approval
-- Double-entry accounting preview
-- Debit/Credit entries with VAT
-- Balance verification
-- Ready-to-push status
-- Integration-ready push endpoint
-- **CSV/PDF export** (NEW)
+### Accounting Data (NEW)
+- GET /api/accounting-data/chart-of-accounts
+- GET /api/accounting-data/vat-codes
+- GET /api/accounting-data/journals
+- GET /api/accounting-data/available-countries
+- POST /api/accounting-data/company/{tenant_id}/custom-accounts
+- POST /api/accounting-data/company/{tenant_id}/custom-journals
 
-### Activity Logging
-- All actions logged with timestamps
-- Time saved calculation per activity
-- Activity breakdown by type
-- 30-day statistics
+### AI Dashboard (NEW)
+- GET /api/ai-dashboard/stats
+- GET /api/ai-dashboard/corrections
+- GET /api/ai-dashboard/vendor-accuracy/{tenant_id}
+- GET /api/ai-dashboard/active-companies/{year}/{month}
 
-### Vendor Learning
-- Learns from user corrections
-- Stores account mapping per vendor
-- Suggests learned patterns on next upload
-- Usage count tracking
+### Previous Endpoints (Auth, Tenants, Documents, Vouchers, etc.)
+- All previous endpoints remain functional
 
-### Billing (Admin-Activated)
-- 3 plans: Starter (299 DKK), Professional (799 DKK), Accountant (1499 DKK)
-- Admin manually activates subscriptions
-- Subscription requests queue
-- Usage limits enforcement ready
+## New Database Collections
 
-### Beta Features (NEW)
-- **BetaBanner** - Full-width amber banner with BETA badge
-- **FeedbackDialog** - Star rating, category select, text feedback
-- **Bug Report** - AI extraction category with helpful hints
-- **ExportButton** - Dropdown with CSV/PDF options
-- **MockEmailService** - Logs to db.email_logs (MOCKED)
-
-## API Endpoints (v2.1.0-beta)
-
-### Auth
-- POST /api/auth/register (triggers welcome email - MOCKED)
-- POST /api/auth/login
-- POST /api/auth/password-reset/request
-- POST /api/auth/password-reset/confirm
-- GET /api/auth/me
-- POST /api/auth/refresh
-
-### Tenants
-- POST /api/tenants/
-- GET /api/tenants/
-- GET /api/tenants/{id}
-- PUT /api/tenants/{id}
-- POST /api/tenants/{id}/users/{email}
-- GET /api/tenants/{id}/provider
-- PUT /api/tenants/{id}/provider
-- POST /api/tenants/{id}/provider/test
-
-### Documents
-- POST /api/documents/upload
-- GET /api/documents/
-- GET /api/documents/{id}
-- PUT /api/documents/{id}/edit
-- PUT /api/documents/{id}/approve
-
-### Vouchers
-- GET /api/vouchers/{tenant_id}
-- GET /api/vouchers/{tenant_id}/{voucher_id}
-- POST /api/vouchers/{tenant_id}/push
-
-### Activity
-- GET /api/activity/{tenant_id}
-- GET /api/activity/{tenant_id}/time-saved
-
-### Vendors
-- GET /api/vendors/{tenant_id}
-- PUT /api/vendors/{tenant_id}/{pattern_id}
-
-### Billing
-- GET /api/billing/plans
-- POST /api/billing/request
-- GET /api/billing/subscription
-- DELETE /api/billing/subscription
-
-### Admin
-- GET /api/admin/users
-- GET /api/admin/stats
-- PUT /api/admin/users/{id}/role
-- GET /api/admin/subscription-requests
-- POST /api/admin/subscriptions/activate
-
-### Feedback (NEW - Beta)
-- POST /api/feedback - Submit feedback/bug report
-- GET /api/feedback - Admin only, list all feedback
-
-### Export (NEW - Beta)
-- POST /api/export/{tenant_id}/vouchers - Export as CSV/PDF
-
-### Email (NEW - MOCKED)
-- GET /api/emails/logs - Admin only, view email logs
-
-### Dashboard
-- GET /api/dashboard/stats
-- GET /api/accountant/overview
-
-## MOCKED / Integration-Ready Components
-
-### e-conomic Accounting Provider
-- **Status:** Integration-ready structure
-- **What works:** All interface methods defined
-- **What's mocked:** API calls return placeholder responses
-- **To activate:** Add agreement_number and user_token to tenant provider config
-
-### Stripe Billing
-- **Status:** Demo mode
-- **What works:** Plan structure, subscription database
-- **What's mocked:** No live payment processing
-- **To activate:** Admin manually activates subscriptions, Stripe webhook integration pending
-
-### Email Notifications (NEW)
-- **Status:** MOCKED
-- **What works:** MockEmailService logs all emails to db.email_logs
-- **What's mocked:** No actual email sending
-- **To activate:** Integrate SendGrid/Resend with live API keys
-
-## Environment Variables
-
-### Backend (.env)
-```
-MONGO_URL=mongodb://localhost:27017
-DB_NAME=ai_accounting_copilot
-JWT_SECRET=<secret>
-EMERGENT_LLM_KEY=<key>
-STRIPE_SECRET_KEY=<placeholder>
-ENCRYPTION_KEY=<auto-generated>
+### ai_corrections
+```json
+{
+  "id": "uuid",
+  "tenant_id": "string",
+  "document_id": "string",
+  "vendor_name": "string",
+  "ai_account": "string",
+  "final_account": "string",
+  "ai_vat": "string",
+  "final_vat": "string",
+  "ai_confidence": "float",
+  "was_correct": "boolean",
+  "corrected_by": "string",
+  "timestamp": "datetime"
+}
 ```
 
-## Test Results (Latest - iteration_3.json)
+### ai_stats
+```json
+{
+  "tenant_id": "string",
+  "total_extractions": "int",
+  "overall_accuracy": "float",
+  "account_accuracy": "float",
+  "vat_accuracy": "float",
+  "updated_at": "datetime"
+}
+```
 
-- **Backend:** 86% (12/14 - 2 skipped due to no vouchers)
-- **Frontend:** 100% (all beta UI components working)
-- **Version:** 2.1.0-beta
-- **Test User:** betatest@example.dk / test123
+### monthly_activity
+```json
+{
+  "period": "YYYY-MM",
+  "active_count": "int",
+  "companies": [{"tenant_id", "invoices_processed", "vouchers_created"}],
+  "calculated_at": "datetime"
+}
+```
+
+## Test Results (Latest - iteration_4.json)
+
+- **Backend:** 100% (17/17 tests passed)
+- **Frontend:** 100% (all AI Dashboard UI components working)
+- **Version:** 2.2.0-beta
+- **Test Users:** admin@aiaccounting.dk / admin123, betatest@example.dk / test123
+
+## MOCKED Integrations (By Design)
+
+1. **Email Notifications:** MockEmailService logs to db.email_logs
+2. **Stripe Payments:** Admin manually activates subscriptions
+3. **e-conomic API:** Integration-ready placeholder structure
 
 ## Next Steps
 
 ### P0 - Required for Production
-1. Integrate live Stripe keys (replace admin activation)
-2. Connect e-conomic API with real credentials
-3. Integrate SendGrid for real email notifications
+1. Live Stripe webhooks integration
+2. Real e-conomic API connection
+3. SendGrid email integration
+4. Invoice processing with real OCR + AI (currently uses simulation)
 
 ### P1 - High Priority
-1. PDF report generation for VAT
-2. Bank transaction import (CSV/OFX)
+1. Bank transaction import (CSV/OFX)
+2. PDF report generation for VAT
 3. Advanced reconciliation algorithms
 
 ### P2 - Medium Priority
-1. OAuth login (Google, Microsoft)
-2. DineroProvider implementation
-3. BillyProvider implementation
+1. Activate Swedish VAT rules
+2. Activate Norwegian VAT rules
+3. OAuth login (Google, Microsoft)
 
 ### P3 - Nice to Have
-1. Danish language support
+1. Danish language support (UI)
 2. Mobile responsive improvements
 3. Extended export options (Excel)
+
+## Definition of Done (Production AI)
+
+✅ AI returns structured JSON reliably
+✅ No hallucinated accounts (validated against chart)
+✅ Vendor learning overrides function correctly
+✅ Confidence score reflects correction history
+✅ Error rate tracking implemented
+⏳ 50 mixed invoices tested successfully (pending real invoice data)
