@@ -12,6 +12,13 @@ import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '../ui/select';
 import { toast } from 'sonner';
 import { feedbackAPI } from '../../lib/api';
 
@@ -117,22 +124,21 @@ export const FeedbackDialog = ({ open, onOpenChange, type = 'feedback' }) => {
 
                     {/* Category */}
                     <div className="space-y-2">
-                        <Label htmlFor="category">
+                        <Label>
                             {isBugReport ? 'Bug Category' : 'Feedback Category'}
                         </Label>
-                        <select
-                            id="category"
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
-                            data-testid="feedback-category"
-                        >
-                            {categories.map((cat) => (
-                                <option key={cat} value={cat}>
-                                    {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                </option>
-                            ))}
-                        </select>
+                        <Select value={category} onValueChange={setCategory}>
+                            <SelectTrigger data-testid="feedback-category">
+                                <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {categories.map((cat) => (
+                                    <SelectItem key={cat} value={cat}>
+                                        {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     {/* Bug-specific: Page context */}
