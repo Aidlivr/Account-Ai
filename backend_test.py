@@ -1,6 +1,7 @@
 import requests
 import sys
 import json
+import io
 from datetime import datetime
 
 class AIAccountingAPITester:
@@ -10,6 +11,8 @@ class AIAccountingAPITester:
         self.token = None
         self.user_id = None
         self.tenant_id = None
+        self.document_id = None
+        self.voucher_id = None
         self.tests_run = 0
         self.tests_passed = 0
         self.test_results = []
