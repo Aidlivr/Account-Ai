@@ -448,6 +448,25 @@ Return JSON in this exact format:
         
         return round(confidence, 2)
     
+    # ==================== COMPANY CONFIGURATION ====================
+    
+    async def _get_company_rule_config(self, tenant_id: str) -> CompanyConfig:
+        """Get company-specific rule configuration"""
+        # Try to get custom config from database
+        tenant = await self.db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+        
+        if tenant and tenant.get("rule_config"):
+            config_data = tenant["rule_config"]
+            return CompanyConfig(
+                asset_threshold_dkk=config_data.get("asset_threshold_dkk", 15000.0),
+                enable_asset_detection=config_data.get("enable_asset_detection", True),
+                default_currency=config_data.get("default_currency", "DKK"),
+                country_code=config_data.get("country_code", "DK")
+            )
+        
+        # Return default config
+        return CompanyConfig()
+    
     # ==================== VENDOR HISTORY ====================
     
     async def _get_vendor_history(self, tenant_id: str, vendor_name: Optional[str]) -> Optional[Dict]:
