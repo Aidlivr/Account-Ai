@@ -207,7 +207,7 @@ CATEGORY_TO_ACCOUNT: Dict[AccountCategory, Tuple[str, str]] = {
     AccountCategory.CLEANING: ("6030", "Rengøring"),
     AccountCategory.BANK_FEES: ("8600", "Bankgebyrer"),
     AccountCategory.RAW_MATERIALS: ("4000", "Varekøb"),
-    AccountCategory.SUBCONTRACTOR: ("4300", "Fremmed arbejde"),
+    AccountCategory.SUBCONTRACTOR: ("6200", "Vedligeholdelse"),
     AccountCategory.PERSONNEL: ("5300", "Andre personaleomkostninger"),
     AccountCategory.PREPAYMENT: ("1200", "Forudbetalte omkostninger"),
     AccountCategory.GOVERNMENT: ("2610", "Skyldig A-skat"),
