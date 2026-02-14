@@ -4,7 +4,7 @@
     "processed_successfully": 50,
     "failed_processing": 0,
     "success_rate_percent": 100.0,
-    "overall_field_accuracy_percent": 94.99,
+    "overall_field_accuracy_percent": 94.82,
     "critical_field_accuracy_percent": 100.0,
     "needs_review_count": 6,
     "needs_review_percent": 12.0
@@ -17,9 +17,9 @@
       "missing": 0
     },
     "cvr_number": {
-      "accuracy_percent": 95.92,
-      "correct": 47,
-      "incorrect": 2,
+      "accuracy_percent": 93.88,
+      "correct": 46,
+      "incorrect": 3,
       "missing": 1
     },
     "invoice_number": {
@@ -41,9 +41,9 @@
       "missing": 0
     },
     "currency": {
-      "accuracy_percent": 90.0,
-      "correct": 45,
-      "incorrect": 5,
+      "accuracy_percent": 92.0,
+      "correct": 46,
+      "incorrect": 4,
       "missing": 0
     },
     "net_amount": {
@@ -71,9 +71,9 @@
       "missing": 0
     },
     "suggested_account": {
-      "accuracy_percent": 72.0,
-      "correct": 36,
-      "incorrect": 14,
+      "accuracy_percent": 70.0,
+      "correct": 35,
+      "incorrect": 15,
       "missing": 0
     },
     "journal": {
@@ -85,9 +85,9 @@
   },
   "error_counts": {
     "critical": 0,
-    "major": 21,
-    "minor": 9,
-    "total": 30
+    "major": 23,
+    "minor": 8,
+    "total": 31
   },
   "error_details": {
     "critical": [],
@@ -98,6 +98,13 @@
         "expected": "MOMSFRI",
         "actual": "I0",
         "message": "Expected 'MOMSFRI', got 'I0'"
+      },
+      {
+        "invoice_id": "INV-009",
+        "field": "suggested_account",
+        "expected": "6010",
+        "actual": "6000",
+        "message": "Expected '6010', got '6000'"
       },
       {
         "invoice_id": "INV-013",
@@ -126,6 +133,13 @@
         "expected": "1500",
         "actual": "6100",
         "message": "Expected '1500', got '6100'"
+      },
+      {
+        "invoice_id": "INV-026",
+        "field": "cvr_number",
+        "expected": "DE143464973",
+        "actual": "",
+        "message": "Expected CVR 'DE143464973', got ''"
       },
       {
         "invoice_id": "INV-027",
@@ -215,22 +229,8 @@
         "invoice_id": "INV-044",
         "field": "suggested_account",
         "expected": "6200",
-        "actual": "4300",
-        "message": "Expected '6200', got '4300'"
-      },
-      {
-        "invoice_id": "INV-045",
-        "field": "suggested_account",
-        "expected": "8400",
         "actual": "7500",
-        "message": "Expected '8400', got '7500'"
-      },
-      {
-        "invoice_id": "INV-047",
-        "field": "suggested_account",
-        "expected": "7500",
-        "actual": "7200",
-        "message": "Expected '7500', got '7200'"
+        "message": "Expected '6200', got '7500'"
       }
     ],
     "minor": [
@@ -277,13 +277,6 @@
         "message": "Expected 'USD', got 'DKK'"
       },
       {
-        "invoice_id": "INV-033",
-        "field": "currency",
-        "expected": "NOK",
-        "actual": "DKK",
-        "message": "Expected 'NOK', got 'DKK'"
-      },
-      {
         "invoice_id": "INV-034",
         "field": "currency",
         "expected": "SEK",
@@ -311,6 +304,9 @@
     }
   },
   "account_confusion_matrix": {
+    "6010": {
+      "6000": 1
+    },
     "6320": {
       "6310": 1
     },
@@ -340,7 +336,7 @@
       "6100": 1
     },
     "6200": {
-      "4300": 1
+      "7500": 1
     },
     "8400": {
       "7500": 1
@@ -362,6 +358,10 @@
       "correction_count": 2
     },
     {
+      "vendor": "SAP SE",
+      "correction_count": 2
+    },
+    {
       "vendor": "7-Eleven Danmark A/S",
       "correction_count": 2
     },
@@ -378,19 +378,15 @@
       "correction_count": 1
     },
     {
+      "vendor": "Jeudan A/S",
+      "correction_count": 1
+    },
+    {
       "vendor": "SAS Scandinavian Airlines",
       "correction_count": 1
     },
     {
       "vendor": "one.com Group AB",
-      "correction_count": 1
-    },
-    {
-      "vendor": "Bauhaus A/S",
-      "correction_count": 1
-    },
-    {
-      "vendor": "IKEA Business",
       "correction_count": 1
     }
   ],
@@ -398,7 +394,7 @@
     {
       "invoice_id": "INV-026",
       "category": "edge_case",
-      "errors": 1
+      "errors": 2
     },
     {
       "invoice_id": "INV-031",
@@ -406,14 +402,14 @@
       "errors": 1
     },
     {
-      "invoice_id": "INV-033",
+      "invoice_id": "INV-037",
       "category": "edge_case",
       "errors": 1
     },
     {
-      "invoice_id": "INV-037",
+      "invoice_id": "INV-039",
       "category": "edge_case",
-      "errors": 1
+      "errors": 2
     },
     {
       "invoice_id": "INV-044",
@@ -429,8 +425,8 @@
   "by_category": {
     "realistic": {
       "count": 25,
-      "field_accuracy_percent": 97.67,
-      "errors_total": 7,
+      "field_accuracy_percent": 97.33,
+      "errors_total": 8,
       "needs_review": 0
     },
     "edge_case": {
@@ -440,6 +436,6 @@
       "needs_review": 6
     }
   },
-  "timestamp": "2026-02-14T23:37:37.018440+00:00",
+  "timestamp": "2026-02-14T23:41:35.430624+00:00",
   "version": "1.0"
 }
