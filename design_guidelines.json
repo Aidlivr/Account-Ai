@@ -1,0 +1,160 @@
+{
+  "identity": {
+    "persona": "E1 - The Anti-AI Designer",
+    "theme_name": "Nordic Precision",
+    "core_philosophy": "Fusion of Swiss Style Authority with Organic Nordic Calm. Accounting is stressful; the UI should be the antidote.",
+    "principles": [
+      "Fusion over Imitation: Mix Swiss Grid precision with organic textures.",
+      "Emotion First: Reduce financial anxiety through calm, stable colors.",
+      "Content is King: Data is the hero. Tables and charts must be beautiful, not just functional.",
+      "Negative Space: Use whitespace to separate complex financial data.",
+      "Contrast: High contrast for numbers to ensure accuracy."
+    ]
+  },
+  "design_system": {
+    "colors": {
+      "palette_name": "Fjord & Ember",
+      "primary": {
+        "name": "Nordic Teal",
+        "hex": "#0F766E",
+        "tailwind": "teal-700",
+        "usage": "Primary actions, active states, brand identity."
+      },
+      "secondary": {
+        "name": "Ember Orange",
+        "hex": "#EA580C",
+        "tailwind": "orange-600",
+        "usage": "Call to actions, alerts, high-priority notifications."
+      },
+      "neutral": {
+        "light_bg": "#F8FAFC",
+        "dark_bg": "#020617",
+        "surface_light": "#FFFFFF",
+        "surface_dark": "#0F172A",
+        "text_primary_light": "#0F172A",
+        "text_primary_dark": "#F8FAFC"
+      },
+      "semantic": {
+        "success": "#10B981",
+        "warning": "#F59E0B",
+        "error": "#EF4444",
+        "info": "#3B82F6"
+      }
+    },
+    "typography": {
+      "headings": {
+        "family": "Manrope",
+        "weights": ["600", "700", "800"],
+        "usage": "All page titles, section headers, and modal titles."
+      },
+      "body": {
+        "family": "Inter",
+        "weights": ["400", "500"],
+        "usage": "General text, labels, descriptions."
+      },
+      "data": {
+        "family": "JetBrains Mono",
+        "weights": ["400", "500"],
+        "usage": "Financial figures, invoice numbers, transaction IDs."
+      }
+    },
+    "spacing": {
+      "scale": "Generous",
+      "base_padding": "p-6",
+      "section_gap": "gap-8",
+      "container_padding": "p-8 md:p-12"
+    },
+    "radius": {
+      "default": "rounded-md",
+      "buttons": "rounded-md",
+      "cards": "rounded-lg",
+      "inputs": "rounded-md"
+    },
+    "shadows": {
+      "card": "shadow-sm hover:shadow-md transition-shadow duration-200",
+      "dropdown": "shadow-lg border border-border/50",
+      "modal": "shadow-2xl backdrop-blur-sm"
+    }
+  },
+  "components": {
+    "buttons": {
+      "style": "Flat, high contrast.",
+      "primary": "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
+      "secondary": "bg-secondary text-secondary-foreground hover:bg-secondary/90",
+      "outline": "border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground",
+      "ghost": "hover:bg-accent hover:text-accent-foreground"
+    },
+    "cards": {
+      "style": "Clean, bordered, minimal shadow.",
+      "classes": "bg-card text-card-foreground border border-border/60 shadow-sm"
+    },
+    "inputs": {
+      "style": "Solid, accessible.",
+      "classes": "bg-background border-input focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+    },
+    "tables": {
+      "style": "Data-dense but readable.",
+      "header": "bg-muted/50 text-muted-foreground font-medium uppercase tracking-wider text-xs",
+      "row": "hover:bg-muted/50 transition-colors border-b border-border/50",
+      "cell": "py-3 px-4 text-sm"
+    }
+  },
+  "layout": {
+    "dashboard": {
+      "type": "Bento Grid Mode B (High Density)",
+      "grid_cols": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4",
+      "gap": "gap-6",
+      "sidebar": "Fixed left, w-64, border-r border-border/60 bg-card/50 backdrop-blur-xl"
+    },
+    "marketing": {
+      "type": "Asymmetric Tetris Grid",
+      "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+    }
+  },
+  "motion": {
+    "library": "framer-motion",
+    "transitions": {
+      "default": { "duration": 0.2, "ease": "easeOut" },
+      "page": { "initial": { "opacity": 0, "y": 10 }, "animate": { "opacity": 1, "y": 0 }, "exit": { "opacity": 0, "y": -10 } },
+      "stagger": { "staggerChildren": 0.05 }
+    }
+  },
+  "assets": {
+    "images": {
+      "hero_bg": "https://images.unsplash.com/photo-1648994517761-a35b826d5456?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHwxfHxtaW5pbWFsaXN0JTIwbm9yZGljJTIwb2ZmaWNlJTIwZGVzayUyMGxhcHRvcHxlbnwwfHx8fDE3NzEwOTE3NzZ8MA&ixlib=rb-4.1.0&q=85",
+      "auth_bg": "https://images.unsplash.com/photo-1768214033756-9506fa320aae?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDR8MHwxfHNlYXJjaHwxfHxjYWxtJTIwbm9yd2F5JTIwbmF0dXJlJTIwbGFuZHNjYXBlJTIwZm9nfGVufDB8fHx8MTc3MTA5MTc4M3ww&ixlib=rb-4.1.0&q=85",
+      "abstract_texture": "https://images.unsplash.com/photo-1767471773964-f823f778a4bc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMGdlb21ldHJpYyUyMGRhdGElMjB2aXN1YWxpemF0aW9uJTIwd2hpdGUlMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3MTA5MTc4MXww&ixlib=rb-4.1.0&q=85",
+      "user_avatar": "https://images.unsplash.com/photo-1589220286904-3dcef62c68ee?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0JTIwZGl2ZXJzZXxlbnwwfHx8fDE3NzEwOTE3OTB8MA&ixlib=rb-4.1.0&q=85"
+    },
+    "icons": "lucide-react"
+  },
+  "tech_stack": {
+    "frontend": "React 19",
+    "styling": "Tailwind CSS 3.4",
+    "components": "Shadcn UI",
+    "charts": "Recharts",
+    "forms": "React Hook Form + Zod",
+    "animation": "Framer Motion",
+    "notifications": "Sonner"
+  },
+  "instructions_to_main_agent": [
+    "1. INSTALLATION: Install 'framer-motion' and 'cmdk' immediately.",
+    "2. FONTS: Add 'Manrope' and 'JetBrains Mono' via Google Fonts in index.html or CSS.",
+    "3. THEME: Implement the 'Nordic Precision' color palette in tailwind.config.js. Use CSS variables for dynamic theme switching.",
+    "4. LAYOUT: Build the Dashboard using the 'Bento Grid Mode B' strategy. Ensure the Sidebar is collapsible on mobile.",
+    "5. COMPONENTS: Customize Shadcn components to match the 'Sharp & Soft' aesthetic (rounded-md, 1px borders).",
+    "6. TABLES: This is an accounting app. Spend extra effort on the Table component. It must handle dense data without looking cluttered. Use zebra striping (subtle) or hover effects.",
+    "7. MOTION: Apply page transitions to all main routes using Framer Motion. Animate the entrance of dashboard widgets.",
+    "8. AUTH: Use the 'auth_bg' image for the login/register pages with a glassmorphism card overlay.",
+    "9. ACCESSIBILITY: Ensure all text meets APCA contrast standards. Use 'data-testid' on all interactive elements."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Avoid 'AI slop' aesthetics (generic gradients, centered layouts).",
+    "Dark colors must be solid or subtle noise, NOT gradients.",
+    "Create depth with z-index and backdrop-blur (glassmorphism).",
+    "Do NOT use 'transition: all'. Animate specific properties.",
+    "Do NOT center align the app container.",
+    "Use 'sonner' for toasts.",
+    "Export components as named exports, pages as default exports."
+  ]
+}
