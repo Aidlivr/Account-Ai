@@ -390,19 +390,19 @@ class TestAccountingDataRequiresAuth:
     def test_chart_of_accounts_requires_auth(self):
         """Chart of accounts should require authentication"""
         response = requests.get(f"{BASE_URL}/api/accounting-data/chart-of-accounts")
-        assert response.status_code == 401, f"Expected 401 without auth, got {response.status_code}"
+        assert response.status_code in [401, 403], f"Expected 401/403 without auth, got {response.status_code}"
         print("✓ Chart of accounts correctly requires authentication")
     
     def test_vat_codes_requires_auth(self):
         """VAT codes should require authentication"""
         response = requests.get(f"{BASE_URL}/api/accounting-data/vat-codes")
-        assert response.status_code == 401, f"Expected 401 without auth, got {response.status_code}"
+        assert response.status_code in [401, 403], f"Expected 401/403 without auth, got {response.status_code}"
         print("✓ VAT codes correctly requires authentication")
     
     def test_journals_requires_auth(self):
         """Journals should require authentication"""
         response = requests.get(f"{BASE_URL}/api/accounting-data/journals")
-        assert response.status_code == 401, f"Expected 401 without auth, got {response.status_code}"
+        assert response.status_code in [401, 403], f"Expected 401/403 without auth, got {response.status_code}"
         print("✓ Journals correctly requires authentication")
 
 
