@@ -1,166 +1,149 @@
 # AI Accounting Copilot - Product Requirements Document
 
+## Version: 2.0.0-beta (Beta-Ready MVP)
+## Last Updated: Feb 14, 2026
+
 ## Original Problem Statement
-Build an AI Accounting Copilot SaaS with modular architecture for Danish SMEs and accountants. The system should include:
-- Authentication with role-based access (SME User, Accountant, Admin)
-- Multi-tenant company structure
-- Document Processing with OCR and AI extraction
-- Smart Reconciliation Engine
-- VAT Risk Analysis Module
-- Billing with Stripe integration
-- Admin Dashboard
+Build an AI Accounting Copilot SaaS with modular architecture for Danish SMEs and accountants. Focus on:
+- Upload invoice → AI extraction → Review → Approve → Voucher creation → Activity logging
+- Integration-ready architecture for e-conomic (live credentials pending)
+- Stable enough for beta testing with real accountants
 
 ## Architecture
 
 ### Tech Stack
 - **Frontend:** React 19 + Tailwind CSS + Shadcn UI + Framer Motion
-- **Backend:** FastAPI (Python)
+- **Backend:** FastAPI (Python) v2.0.0-beta
 - **Database:** MongoDB
 - **AI:** OpenAI GPT-5.2 via Emergent LLM Key
 - **OCR:** Tesseract (local)
-- **Payments:** Stripe (demo mode)
+- **Payments:** Stripe (admin-activated, live integration pending)
+- **Accounting:** e-conomic (integration-ready, credentials pending)
 
 ### Modular Architecture
 ```
 /app
 ├── backend/
-│   └── server.py          # All backend modules
+│   └── server.py          # All backend modules (1800+ lines)
+│       ├── Auth Module
+│       ├── Tenant Module
+│       ├── Document Module (with AI confidence scoring)
+│       ├── Voucher Module (draft voucher engine)
+│       ├── Activity Module (time tracking)
+│       ├── Vendor Learning Module
+│       ├── Reconciliation Module
+│       ├── VAT Module
+│       ├── Billing Module (admin-activated)
+│       └── Admin Module
 ├── frontend/
-│   ├── src/
-│   │   ├── components/    # UI components
-│   │   ├── contexts/      # Auth & Tenant contexts
-│   │   ├── lib/           # API client & utilities
-│   │   └── pages/         # All page components
+│   └── src/
+│       ├── pages/
+│       │   ├── auth/
+│       │   ├── dashboard/
+│       │   ├── documents/ (with confidence UI)
+│       │   ├── vouchers/ (with preview)
+│       │   ├── activity/ (time saved)
+│       │   └── admin/ (subscription management)
+│       └── components/
 ```
-
-### Backend Modules
-1. **Auth Module** - JWT-based authentication
-2. **Tenant Module** - Multi-company structure
-3. **Document Module** - Upload, OCR, AI extraction
-4. **Reconciliation Module** - Transaction matching
-5. **VAT Module** - Risk analysis
-6. **Billing Module** - Stripe integration
-7. **Admin Module** - System administration
 
 ## User Personas
 
-### SME User
-- Small/medium business owner
-- Uploads invoices and receipts
-- Reviews AI-extracted data
-- Approves documents for booking
+### SME User (sme_user)
+- Sees only own company
+- Uploads invoices
+- Reviews AI-extracted data with confidence indicators
+- Edits uncertain fields
+- Approves documents, creating vouchers
 
-### Accountant
+### Accountant (accountant)
 - Manages multiple client companies
 - Reviews pending documents across clients
 - Monitors VAT risk scores
-- Bulk approves reconciliation matches
+- Bulk operations
 
-### Admin
-- System administrator
-- Manages users and roles
+### Admin (admin)
+- System administration
+- Manually activates subscriptions
+- Manages user roles
 - Views platform statistics
 
-## Core Requirements (Static)
+## Core Requirements (Implemented)
+
+### ✅ Phase 1 - System Hardening
+- [x] Integration-ready accounting provider architecture
+- [x] Provider configuration panel in admin
+- [x] Simulated voucher creation engine with preview
+- [x] Encrypted storage for provider credentials
+
+### ✅ Phase 2 - AI Accuracy & User Control
+- [x] Field-level confidence scores (0.0-1.0)
+- [x] Highlight uncertain fields (<70% confidence)
+- [x] Manual edit before approval
+- [x] Vendor learning system
+
+### ✅ Phase 3 - MVP Professionalization
+- [x] Activity logging for all actions
+- [x] Time saved calculation per activity type
+- [x] Role-based access hardening
+- [x] Error handling and loading states
+
+### ✅ Phase 4 - Billing Ready
+- [x] Subscription table with 3 plans
+- [x] Admin-activated subscriptions
+- [x] Usage tracking (documents/month)
+
+## What's Been Implemented
 
 ### Authentication
-- [x] Email/password registration
-- [x] JWT token-based login
-- [x] Password reset flow
-- [x] Role-based access control
+- JWT-based authentication
+- 3 roles: SME User, Accountant, Admin
+- Password reset flow
+- Token refresh
 
 ### Multi-Tenancy
-- [x] Create/manage companies
-- [x] Assign users to companies
-- [x] Tenant data isolation
-- [x] Tenant selector in UI
+- Create/manage companies
+- Assign users to companies
+- Tenant data isolation
+- Provider configuration per tenant
 
-### Document Processing
-- [x] Upload PDF/image invoices
-- [x] Tesseract OCR extraction
-- [x] AI-powered data extraction (GPT-5.2)
-- [x] CVR validation (Danish 8-digit)
-- [x] VAT consistency check (25%)
-- [x] Duplicate detection
-- [x] Manual review/approval flow
-
-### Reconciliation
-- [x] Unmatched transaction listing
-- [x] AI match suggestions
-- [x] Manual matching
-- [x] Bulk approval
-
-### VAT Analysis
-- [x] Period-based analysis
-- [x] Anomaly detection
-- [x] Risk scoring
-- [x] AI risk summary
-
-### Billing
-- [x] Subscription plans (Starter, Professional, Enterprise)
-- [x] Stripe integration (demo mode)
-- [x] Plan limits enforcement
-
-## What's Been Implemented (Feb 14, 2026)
-
-### Phase 1 - Core Foundation ✅
-- Authentication system (register, login, password reset)
-- Role-based access control (SME User, Accountant, Admin)
-- Multi-tenant company structure
-- Basic dashboard with stats
-
-### Phase 2 - Document Processing ✅
-- File upload (PDF, JPG, PNG)
-- Tesseract OCR integration
-- AI extraction with GPT-5.2
-- CVR and VAT validation
+### Document Processing (Enhanced)
+- Upload PDF/image invoices
+- Tesseract OCR extraction
+- AI extraction with **field-level confidence scores**
+- CVR validation (Danish 8-digit)
+- VAT consistency check (25%)
 - Duplicate detection
-- Review/approval workflow
+- **Manual field editing before approval**
+- **Vendor pattern learning on approval**
 
-### Phase 3 - Reconciliation ✅
-- Unmatched transaction API
-- AI match suggestions
-- Individual and bulk matching
+### Voucher Engine (NEW)
+- Draft voucher creation on approval
+- Double-entry accounting preview
+- Debit/Credit entries with VAT
+- Balance verification
+- Ready-to-push status
+- Integration-ready push endpoint
 
-### Phase 4 - VAT Analysis ✅
-- Quarterly VAT analysis
-- Anomaly detection
-- Risk scoring system
-- AI-generated risk summaries
+### Activity Logging (NEW)
+- All actions logged with timestamps
+- Time saved calculation per activity
+- Activity breakdown by type
+- 30-day statistics
 
-### Phase 5 - Billing ✅
-- Three-tier subscription plans
-- Stripe integration (demo mode)
-- Subscription management
+### Vendor Learning (NEW)
+- Learns from user corrections
+- Stores account mapping per vendor
+- Suggests learned patterns on next upload
+- Usage count tracking
 
-### Phase 6 - Dashboards ✅
-- Main dashboard with KPIs
-- Accountant multi-client overview
-- Admin panel with user management
+### Billing (Admin-Activated)
+- 3 plans: Starter (299 DKK), Professional (799 DKK), Accountant (1499 DKK)
+- Admin manually activates subscriptions
+- Subscription requests queue
+- Usage limits enforcement ready
 
-## Prioritized Backlog
-
-### P0 (Critical) - None remaining
-
-### P1 (High Priority)
-- Real Stripe integration with live keys
-- Email notifications for document processing
-- Accounting system integration (e-conomic API)
-- PDF report generation for VAT
-
-### P2 (Medium Priority)
-- OAuth login (Google, Microsoft)
-- Bank transaction import
-- DineroProvider and BillyProvider adapters
-- Advanced reconciliation algorithms
-
-### P3 (Nice to Have)
-- Mobile responsive improvements
-- Multi-language support (Danish)
-- Custom chart of accounts
-- Export to CSV/Excel
-
-## API Endpoints
+## API Endpoints (v2.0.0-beta)
 
 ### Auth
 - POST /api/auth/register
@@ -176,12 +159,29 @@ Build an AI Accounting Copilot SaaS with modular architecture for Danish SMEs an
 - GET /api/tenants/{id}
 - PUT /api/tenants/{id}
 - POST /api/tenants/{id}/users/{email}
+- GET /api/tenants/{id}/provider (NEW)
+- PUT /api/tenants/{id}/provider (NEW)
+- POST /api/tenants/{id}/provider/test (NEW)
 
 ### Documents
 - POST /api/documents/upload
 - GET /api/documents/
 - GET /api/documents/{id}
+- PUT /api/documents/{id}/edit (NEW)
 - PUT /api/documents/{id}/approve
+
+### Vouchers (NEW)
+- GET /api/vouchers/{tenant_id}
+- GET /api/vouchers/{tenant_id}/{voucher_id}
+- POST /api/vouchers/{tenant_id}/push
+
+### Activity (NEW)
+- GET /api/activity/{tenant_id}
+- GET /api/activity/{tenant_id}/time-saved
+
+### Vendors (NEW)
+- GET /api/vendors/{tenant_id}
+- PUT /api/vendors/{tenant_id}/{pattern_id}
 
 ### Reconciliation
 - GET /api/reconciliation/{tenant_id}/unmatched
@@ -194,18 +194,34 @@ Build an AI Accounting Copilot SaaS with modular architecture for Danish SMEs an
 
 ### Billing
 - GET /api/billing/plans
-- POST /api/billing/subscribe
+- POST /api/billing/request (NEW)
 - GET /api/billing/subscription
 - DELETE /api/billing/subscription
-
-### Dashboard
-- GET /api/dashboard/stats
-- GET /api/accountant/overview
 
 ### Admin
 - GET /api/admin/users
 - GET /api/admin/stats
 - PUT /api/admin/users/{id}/role
+- GET /api/admin/subscription-requests (NEW)
+- POST /api/admin/subscriptions/activate (NEW)
+
+### Dashboard
+- GET /api/dashboard/stats
+- GET /api/accountant/overview
+
+## MOCKED / Integration-Ready Components
+
+### e-conomic Accounting Provider
+- **Status:** Integration-ready structure
+- **What works:** All interface methods defined
+- **What's mocked:** API calls return placeholder responses
+- **To activate:** Add agreement_number and user_token to tenant provider config
+
+### Stripe Billing
+- **Status:** Demo mode
+- **What works:** Plan structure, subscription database
+- **What's mocked:** No live payment processing
+- **To activate:** Admin manually activates subscriptions, Stripe webhook integration pending
 
 ## Environment Variables
 
@@ -215,22 +231,46 @@ MONGO_URL=mongodb://localhost:27017
 DB_NAME=ai_accounting_copilot
 JWT_SECRET=<secret>
 EMERGENT_LLM_KEY=<key>
-STRIPE_SECRET_KEY=<key>
+STRIPE_SECRET_KEY=<placeholder>
+ENCRYPTION_KEY=<auto-generated>
 ```
 
-### Frontend (.env)
-```
-REACT_APP_BACKEND_URL=<backend_url>
-```
+## Definition of Done (Beta-Ready) ✅
 
-## Notes
+- [x] User can upload invoice
+- [x] AI extracts with confidence scores
+- [x] User can edit uncertain fields
+- [x] User approves document
+- [x] System creates internal draft voucher with preview
+- [x] Vendor learning works
+- [x] Activity logging with time saved
+- [x] Multi-tenant stable
+- [x] No critical errors
 
-### MOCKED Components
-1. **Accounting Provider (e-conomic)** - Returns placeholder data
-2. **Stripe** - Running in demo mode without live API calls
+## Next Steps (Post-Beta)
 
-### Design System
-- Theme: "Nordic Precision"
-- Primary: Teal (#0F766E)
-- Accent: Orange (#EA580C)
-- Fonts: Manrope (headings), Inter (body), JetBrains Mono (data)
+### P0 - Required for Production
+1. Integrate live Stripe keys
+2. Connect e-conomic API with real credentials
+3. Email notifications (welcome, invoice processed)
+
+### P1 - High Priority
+1. PDF report generation for VAT
+2. Bank transaction import (CSV/OFX)
+3. Advanced reconciliation algorithms
+
+### P2 - Medium Priority
+1. OAuth login (Google, Microsoft)
+2. DineroProvider implementation
+3. BillyProvider implementation
+
+### P3 - Nice to Have
+1. Danish language support
+2. Mobile responsive improvements
+3. Export to CSV/Excel
+
+## Test Results (Latest)
+
+- **Backend:** 95% (18/19 tests passing)
+- **Frontend:** 90% (27/30 tests passing)
+- **Version:** 2.0.0-beta
