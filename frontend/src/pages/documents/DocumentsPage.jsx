@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FileText, Upload, Eye, CheckCircle, XCircle, Clock, AlertTriangle, Search } from 'lucide-react';
+import { FileText, Upload, Eye, CheckCircle, XCircle, Clock, AlertTriangle, Search, Edit2, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { documentAPI } from '../../lib/api';
@@ -7,7 +7,9 @@ import { useTenant } from '../../contexts/TenantContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
+import { Progress } from '../../components/ui/progress';
 import {
     Table,
     TableBody,
@@ -29,7 +31,14 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
+    DialogFooter,
 } from '../../components/ui/dialog';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '../../components/ui/tooltip';
 import { toast } from 'sonner';
 import { formatDate, formatCurrency, getStatusBadge, calculateConfidenceColor } from '../../lib/utils';
 
@@ -43,6 +52,22 @@ const item = {
     show: { opacity: 1, x: 0 }
 };
 
+// Field display names
+const FIELD_LABELS = {
+    supplier_name: 'Supplier',
+    cvr_number: 'CVR Number',
+    invoice_number: 'Invoice #',
+    invoice_date: 'Invoice Date',
+    due_date: 'Due Date',
+    net_amount: 'Net Amount',
+    vat_amount: 'VAT Amount',
+    total_amount: 'Total',
+    vat_percentage: 'VAT %',
+    currency: 'Currency',
+    account_code: 'Account Code',
+    account_name: 'Account Name',
+};
+
 export default function DocumentsPage() {
     const { currentTenant, tenants } = useTenant();
     const navigate = useNavigate();
@@ -53,6 +78,9 @@ export default function DocumentsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDoc, setSelectedDoc] = useState(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedFields, setEditedFields] = useState({});
+    const [approving, setApproving] = useState(false);
 
     const fetchDocuments = useCallback(async () => {
         if (!currentTenant) {
@@ -95,7 +123,7 @@ export default function DocumentsPage() {
         setUploading(true);
         try {
             await documentAPI.upload(file, currentTenant.id);
-            toast.success('Document uploaded! Processing with AI...');
+            toast.success('Document uploaded! AI is extracting data...');
             fetchDocuments();
         } catch (err) {
             toast.error(err.response?.data?.detail || 'Upload failed');
@@ -105,24 +133,76 @@ export default function DocumentsPage() {
         }
     };
 
-    const handleApprove = async (docId, approved) => {
-        try {
-            await documentAPI.approve(docId, approved);
-            toast.success(approved ? 'Document approved' : 'Document rejected');
-            fetchDocuments();
-            setIsDetailOpen(false);
-        } catch (err) {
-            toast.error('Action failed');
-        }
-    };
-
     const openDocumentDetail = async (doc) => {
         try {
             const response = await documentAPI.getOne(doc.id);
             setSelectedDoc(response.data);
+            setEditedFields({});
+            setIsEditing(false);
             setIsDetailOpen(true);
         } catch (err) {
             toast.error('Failed to load document details');
+        }
+    };
+
+    const handleFieldEdit = (field, value) => {
+        setEditedFields(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleSaveEdits = async () => {
+        if (Object.keys(editedFields).length === 0) {
+            setIsEditing(false);
+            return;
+        }
+
+        try {
+            await documentAPI.editFields(selectedDoc.id, editedFields);
+            toast.success('Fields updated');
+            
+            // Refresh document
+            const response = await documentAPI.getOne(selectedDoc.id);
+            setSelectedDoc(response.data);
+            setEditedFields({});
+            setIsEditing(false);
+        } catch (err) {
+            toast.error('Failed to save changes');
+        }
+    };
+
+    const handleApprove = async (approved) => {
+        setApproving(true);
+        try {
+            // Merge edited fields with extracted data for final submission
+            const finalData = {
+                ...selectedDoc.extracted_data,
+                ...editedFields
+            };
+            
+            const accountMapping = {
+                account_code: selectedDoc.ai_suggestions?.account_code || '4000',
+                account_name: selectedDoc.ai_suggestions?.account_name || 'Varekøb',
+                vat_code: selectedDoc.ai_suggestions?.vat_code || '25'
+            };
+            
+            const result = await documentAPI.approve(selectedDoc.id, approved, finalData, accountMapping);
+            
+            if (approved && result.data.voucher_id) {
+                toast.success(
+                    <div>
+                        <p className="font-semibold">Invoice approved!</p>
+                        <p className="text-sm">Draft voucher created and ready to push.</p>
+                    </div>
+                );
+            } else if (!approved) {
+                toast.info('Document rejected');
+            }
+            
+            fetchDocuments();
+            setIsDetailOpen(false);
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Action failed');
+        } finally {
+            setApproving(false);
         }
     };
 
@@ -144,6 +224,12 @@ export default function DocumentsPage() {
             case 'error': return <AlertTriangle className="h-4 w-4 text-destructive" />;
             default: return <Clock className="h-4 w-4 text-muted-foreground" />;
         }
+    };
+
+    const getConfidenceIndicator = (confidence) => {
+        if (confidence >= 0.8) return { color: 'bg-success', label: 'High' };
+        if (confidence >= 0.5) return { color: 'bg-warning', label: 'Medium' };
+        return { color: 'bg-destructive', label: 'Low' };
     };
 
     if (!currentTenant) {
@@ -249,7 +335,7 @@ export default function DocumentsPage() {
                                     <TableHead>Supplier</TableHead>
                                     <TableHead>Invoice #</TableHead>
                                     <TableHead>Amount</TableHead>
-                                    <TableHead>Confidence</TableHead>
+                                    <TableHead>AI Confidence</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Date</TableHead>
                                     <TableHead className="w-24">Actions</TableHead>
@@ -264,6 +350,7 @@ export default function DocumentsPage() {
                                 >
                                     {filteredDocs.map((doc) => {
                                         const statusInfo = getStatusBadge(doc.status);
+                                        const confidenceInfo = getConfidenceIndicator(doc.overall_confidence || 0);
                                         return (
                                             <motion.tr
                                                 key={doc.id}
@@ -288,10 +375,28 @@ export default function DocumentsPage() {
                                                     {formatCurrency(doc.extracted_data?.total_amount, doc.extracted_data?.currency)}
                                                 </TableCell>
                                                 <TableCell className="data-table-cell">
-                                                    {doc.confidence_score !== null && (
-                                                        <span className={`font-mono ${calculateConfidenceColor(doc.confidence_score)}`}>
-                                                            {Math.round(doc.confidence_score * 100)}%
-                                                        </span>
+                                                    {doc.overall_confidence !== null && doc.overall_confidence !== undefined && (
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className={`w-2 h-2 rounded-full ${confidenceInfo.color}`} />
+                                                                        <span className="font-mono">
+                                                                            {Math.round(doc.overall_confidence * 100)}%
+                                                                        </span>
+                                                                        {doc.uncertain_fields?.length > 0 && (
+                                                                            <AlertTriangle className="h-3 w-3 text-warning" />
+                                                                        )}
+                                                                    </div>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    {doc.uncertain_fields?.length > 0 
+                                                                        ? `${doc.uncertain_fields.length} fields need review`
+                                                                        : 'All fields confident'
+                                                                    }
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
                                                     )}
                                                 </TableCell>
                                                 <TableCell className="data-table-cell">
@@ -325,11 +430,11 @@ export default function DocumentsPage() {
 
             {/* Document Detail Dialog */}
             <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <FileText className="h-5 w-5" />
-                            Document Details
+                            Document Review
                         </DialogTitle>
                         <DialogDescription>
                             {selectedDoc?.filename}
@@ -338,56 +443,114 @@ export default function DocumentsPage() {
                     
                     {selectedDoc && (
                         <div className="space-y-6 py-4">
-                            {/* AI Extracted Data */}
-                            <div className="space-y-4">
-                                <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
-                                    AI Extracted Data
-                                </h4>
-                                <div className="grid grid-cols-2 gap-4">
+                            {/* Overall Confidence */}
+                            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                    <Sparkles className="h-5 w-5 text-primary" />
                                     <div>
-                                        <p className="text-sm text-muted-foreground">Supplier</p>
-                                        <p className="font-medium">{selectedDoc.extracted_data?.supplier_name || '-'}</p>
+                                        <p className="font-semibold">AI Extraction Confidence</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {selectedDoc.uncertain_fields?.length > 0 
+                                                ? `${selectedDoc.uncertain_fields.length} fields need your attention`
+                                                : 'All fields extracted with high confidence'
+                                            }
+                                        </p>
                                     </div>
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">CVR Number</p>
-                                        <p className="font-mono">{selectedDoc.extracted_data?.cvr_number || '-'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">Invoice Number</p>
-                                        <p className="font-mono">{selectedDoc.extracted_data?.invoice_number || '-'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">Invoice Date</p>
-                                        <p>{selectedDoc.extracted_data?.invoice_date || '-'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">Due Date</p>
-                                        <p>{selectedDoc.extracted_data?.due_date || '-'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">Net Amount</p>
-                                        <p className="font-mono">{formatCurrency(selectedDoc.extracted_data?.net_amount)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">VAT Amount</p>
-                                        <p className="font-mono">{formatCurrency(selectedDoc.extracted_data?.vat_amount)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">Total Amount</p>
-                                        <p className="font-mono font-bold text-lg">{formatCurrency(selectedDoc.extracted_data?.total_amount)}</p>
-                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className={`text-2xl font-bold font-mono ${calculateConfidenceColor(selectedDoc.overall_confidence || 0)}`}>
+                                        {Math.round((selectedDoc.overall_confidence || 0) * 100)}%
+                                    </p>
+                                    <Badge variant={getStatusBadge(selectedDoc.status).variant}>
+                                        {getStatusBadge(selectedDoc.status).label}
+                                    </Badge>
                                 </div>
                             </div>
 
-                            {/* AI Suggestions */}
+                            {/* Extracted Data with Confidence */}
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
+                                        Extracted Invoice Data
+                                    </h4>
+                                    {selectedDoc.status === 'review' && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                if (isEditing) {
+                                                    handleSaveEdits();
+                                                } else {
+                                                    setIsEditing(true);
+                                                }
+                                            }}
+                                            data-testid="edit-toggle-btn"
+                                        >
+                                            <Edit2 className="h-4 w-4 mr-2" />
+                                            {isEditing ? 'Save Changes' : 'Edit Fields'}
+                                        </Button>
+                                    )}
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                    {Object.entries(FIELD_LABELS).map(([field, label]) => {
+                                        const fieldData = selectedDoc.field_confidence?.[field];
+                                        const value = editedFields[field] ?? selectedDoc.extracted_data?.[field];
+                                        const confidence = fieldData?.confidence;
+                                        const isUncertain = fieldData?.uncertain;
+                                        const source = fieldData?.source;
+                                        
+                                        // Skip line_items and empty fields
+                                        if (field === 'line_items') return null;
+                                        
+                                        return (
+                                            <div key={field} className={`p-3 rounded-md ${isUncertain ? 'bg-warning/10 border border-warning/30' : 'bg-muted/30'}`}>
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <Label className="text-sm text-muted-foreground">{label}</Label>
+                                                    {confidence !== undefined && (
+                                                        <div className="flex items-center gap-1">
+                                                            {source === 'user_edited' && (
+                                                                <Badge variant="outline" className="text-xs">Edited</Badge>
+                                                            )}
+                                                            {source === 'vendor_learned' && (
+                                                                <Badge variant="secondary" className="text-xs">Learned</Badge>
+                                                            )}
+                                                            <span className={`text-xs font-mono ${calculateConfidenceColor(confidence)}`}>
+                                                                {Math.round(confidence * 100)}%
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {isEditing && selectedDoc.status === 'review' ? (
+                                                    <Input
+                                                        value={value ?? ''}
+                                                        onChange={(e) => handleFieldEdit(field, e.target.value)}
+                                                        className={isUncertain ? 'border-warning' : ''}
+                                                        data-testid={`edit-field-${field}`}
+                                                    />
+                                                ) : (
+                                                    <p className={`font-medium ${field.includes('amount') ? 'font-mono' : ''}`}>
+                                                        {field.includes('amount') && value 
+                                                            ? formatCurrency(value) 
+                                                            : value || '-'
+                                                        }
+                                                    </p>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* AI Suggestions & Validations */}
                             {selectedDoc.ai_suggestions && (
                                 <div className="space-y-4">
                                     <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
-                                        AI Suggestions & Validations
+                                        AI Validations & Suggestions
                                     </h4>
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
-                                            <span>CVR Valid</span>
+                                            <span>CVR Valid (8 digits)</span>
                                             {selectedDoc.ai_suggestions.cvr_valid ? (
                                                 <Badge variant="success"><CheckCircle className="h-3 w-3 mr-1" /> Valid</Badge>
                                             ) : (
@@ -399,7 +562,7 @@ export default function DocumentsPage() {
                                             {selectedDoc.ai_suggestions.vat_consistent ? (
                                                 <Badge variant="success"><CheckCircle className="h-3 w-3 mr-1" /> Consistent</Badge>
                                             ) : (
-                                                <Badge variant="warning"><AlertTriangle className="h-3 w-3 mr-1" /> Inconsistent</Badge>
+                                                <Badge variant="warning"><AlertTriangle className="h-3 w-3 mr-1" /> Check VAT</Badge>
                                             )}
                                         </div>
                                         <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
@@ -410,52 +573,60 @@ export default function DocumentsPage() {
                                                 <Badge variant="success"><CheckCircle className="h-3 w-3 mr-1" /> Unique</Badge>
                                             )}
                                         </div>
-                                        {selectedDoc.ai_suggestions.account_code && (
-                                            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
-                                                <span>Suggested Account</span>
-                                                <span className="font-mono">
-                                                    {selectedDoc.ai_suggestions.account_code} - {selectedDoc.ai_suggestions.account_name}
+                                        {selectedDoc.ai_suggestions.vendor_pattern_found && (
+                                            <div className="flex items-center justify-between p-3 bg-primary/10 rounded-md border border-primary/30">
+                                                <span className="flex items-center gap-2">
+                                                    <Sparkles className="h-4 w-4 text-primary" />
+                                                    Vendor Pattern Found
                                                 </span>
+                                                <Badge variant="secondary">
+                                                    Used {selectedDoc.ai_suggestions.vendor_usage_count || 0}x before
+                                                </Badge>
+                                            </div>
+                                        )}
+                                        {selectedDoc.ai_suggestions.account_code && (
+                                            <div className="p-3 bg-muted/50 rounded-md">
+                                                <div className="flex items-center justify-between">
+                                                    <span>Suggested Account</span>
+                                                    <span className={`font-mono ${calculateConfidenceColor(selectedDoc.ai_suggestions.account_confidence || 0)}`}>
+                                                        {Math.round((selectedDoc.ai_suggestions.account_confidence || 0) * 100)}% confident
+                                                    </span>
+                                                </div>
+                                                <p className="font-mono mt-1">
+                                                    {selectedDoc.ai_suggestions.account_code} - {selectedDoc.ai_suggestions.account_name}
+                                                </p>
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             )}
 
-                            {/* Confidence Score */}
-                            <div className="flex items-center justify-between p-4 bg-card border rounded-lg">
-                                <div>
-                                    <p className="text-sm text-muted-foreground">AI Confidence Score</p>
-                                    <p className={`text-2xl font-bold font-mono ${calculateConfidenceColor(selectedDoc.confidence_score || 0)}`}>
-                                        {Math.round((selectedDoc.confidence_score || 0) * 100)}%
-                                    </p>
-                                </div>
-                                <Badge variant={getStatusBadge(selectedDoc.status).variant}>
-                                    {getStatusBadge(selectedDoc.status).label}
-                                </Badge>
-                            </div>
-
                             {/* Actions */}
                             {selectedDoc.status === 'review' && (
-                                <div className="flex gap-3 pt-4">
+                                <DialogFooter className="gap-3 pt-4">
                                     <Button 
                                         variant="outline" 
-                                        className="flex-1 border-destructive text-destructive hover:bg-destructive/10"
-                                        onClick={() => handleApprove(selectedDoc.id, false)}
+                                        className="border-destructive text-destructive hover:bg-destructive/10"
+                                        onClick={() => handleApprove(false)}
+                                        disabled={approving}
                                         data-testid="reject-doc-btn"
                                     >
                                         <XCircle className="h-4 w-4 mr-2" />
                                         Reject
                                     </Button>
                                     <Button 
-                                        className="flex-1"
-                                        onClick={() => handleApprove(selectedDoc.id, true)}
+                                        onClick={() => handleApprove(true)}
+                                        disabled={approving}
                                         data-testid="approve-doc-btn"
                                     >
-                                        <CheckCircle className="h-4 w-4 mr-2" />
-                                        Approve
+                                        {approving ? (
+                                            <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                                        ) : (
+                                            <CheckCircle className="h-4 w-4 mr-2" />
+                                        )}
+                                        Approve & Create Voucher
                                     </Button>
-                                </div>
+                                </DialogFooter>
                             )}
                         </div>
                     )}
