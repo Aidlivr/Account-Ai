@@ -2674,6 +2674,9 @@ api_router.include_router(reconciliation_router)
 api_router.include_router(vat_router)
 api_router.include_router(billing_router)
 api_router.include_router(admin_router)
+api_router.include_router(feedback_router)
+api_router.include_router(export_router)
+api_router.include_router(email_router)
 
 app.include_router(api_router)
 
