@@ -1401,91 +1401,145 @@ async def upload_document(
     )
 
 async def process_document_enhanced(doc_id: str, file_content: bytes, file_type: str, tenant_id: str, user_id: str):
-    """Enhanced document processing with confidence scoring"""
+    """Enhanced document processing with production AI, validation, and vendor learning"""
+    global production_ai_service
+    
     try:
         # OCR extraction
         ocr_text = await TesseractProvider.extract_text(file_content, file_type)
         
         time_saved = TIME_ESTIMATES["ocr_extraction"]
         
-        # AI extraction with confidence
-        ai_result = await AIService.extract_invoice_data_with_confidence(ocr_text, tenant_id)
+        # Initialize production AI service if needed
+        if not production_ai_service:
+            production_ai_service = ProductionAIService(db, EMERGENT_LLM_KEY)
+        
+        # Get tenant context
+        tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+        company_context = {
+            "industry": tenant.get("settings", {}).get("industry", "general"),
+            "currency": tenant.get("settings", {}).get("currency", "DKK")
+        }
+        
+        # Use production AI service for extraction
+        ai_result = await production_ai_service.extract_invoice_data(
+            ocr_text, 
+            tenant_id, 
+            company_context
+        )
         
         time_saved += TIME_ESTIMATES["data_entry"]
         
-        fields = ai_result.get("fields", {})
-        overall_confidence = ai_result.get("overall_confidence", 0)
-        uncertain_fields = ai_result.get("uncertain_fields", [])
+        if not ai_result.get("success"):
+            # AI failed - mark document with error status
+            await db.documents.update_one(
+                {"id": doc_id},
+                {"$set": {
+                    "status": "ai_processing_failed",
+                    "error_message": ai_result.get("error", "AI extraction failed"),
+                    "ocr_text": ocr_text,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            logger.error(f"Document {doc_id} AI processing failed: {ai_result.get('error')}")
+            return
         
-        # Get vendor learning suggestion
-        supplier_name = fields.get("supplier_name", {}).get("value")
-        cvr_number = fields.get("cvr_number", {}).get("value")
+        # Extract data from production AI result
+        ai_data = ai_result.get("data", {})
+        overall_confidence = ai_data.get("confidence_score", 0)
+        vendor_override_applied = ai_result.get("vendor_override_applied", False)
         
-        vendor_pattern = await VendorLearningService.get_vendor_suggestion(
-            tenant_id, cvr_number, supplier_name
-        )
+        # Build fields with confidence
+        fields = {}
+        uncertain_fields = []
         
-        # Get account mapping suggestion
-        total_amount = fields.get("total_amount", {}).get("value", 0)
-        account_suggestion = await AIService.suggest_account_mapping(
-            supplier_name or "",
-            str(fields.get("line_items", [])),
-            total_amount or 0,
-            vendor_pattern
-        )
+        field_mapping = [
+            ("supplier_name", "vendor_name"),
+            ("cvr_number", "cvr_number"),
+            ("invoice_number", "invoice_number"),
+            ("invoice_date", "invoice_date"),
+            ("due_date", "due_date"),
+            ("net_amount", "net_amount"),
+            ("vat_amount", "vat_amount"),
+            ("total_amount", "total_amount"),
+            ("currency", "currency"),
+        ]
+        
+        for field_key, ai_key in field_mapping:
+            value = ai_data.get(ai_key)
+            confidence = overall_confidence if value else 0.3
+            uncertain = confidence < 0.7
+            
+            fields[field_key] = {
+                "value": value,
+                "confidence": confidence,
+                "source": "ai_production" if not vendor_override_applied else "vendor_learned",
+                "uncertain": uncertain
+            }
+            
+            if uncertain and value:
+                uncertain_fields.append(field_key)
+        
+        # Add account mapping from production AI
+        account_code = ai_data.get("suggested_account")
+        account_name = ai_data.get("suggested_account_name")
+        vat_code = ai_data.get("vat_code", "I25")
+        
+        fields["account_code"] = {
+            "value": account_code,
+            "confidence": overall_confidence,
+            "source": "vendor_learned" if vendor_override_applied else "ai_production",
+            "uncertain": not vendor_override_applied and overall_confidence < 0.7
+        }
+        fields["account_name"] = {
+            "value": account_name,
+            "confidence": overall_confidence,
+            "source": "vendor_learned" if vendor_override_applied else "ai_production",
+            "uncertain": not vendor_override_applied and overall_confidence < 0.7
+        }
         
         time_saved += TIME_ESTIMATES["account_mapping"]
         
-        # Add account mapping to fields
-        fields["account_code"] = {
-            "value": account_suggestion.get("account_code"),
-            "confidence": account_suggestion.get("confidence", 0.5),
-            "source": account_suggestion.get("source", "ai"),
-            "uncertain": account_suggestion.get("confidence", 0.5) < 0.7
-        }
-        fields["account_name"] = {
-            "value": account_suggestion.get("account_name"),
-            "confidence": account_suggestion.get("confidence", 0.5),
-            "source": account_suggestion.get("source", "ai"),
-            "uncertain": account_suggestion.get("confidence", 0.5) < 0.7
-        }
-        
         # Validate CVR format
-        cvr_val = cvr_number
+        cvr_val = ai_data.get("cvr_number")
         cvr_valid = bool(re.match(r"^\d{8}$", str(cvr_val))) if cvr_val else None
         
         # Validate VAT consistency
-        vat_amount = fields.get("vat_amount", {}).get("value", 0) or 0
-        net_amount = fields.get("net_amount", {}).get("value", 0) or 0
+        vat_amount = float(ai_data.get("vat_amount", 0) or 0)
+        net_amount = float(ai_data.get("net_amount", 0) or 0)
         expected_vat = net_amount * 0.25
         vat_consistent = abs(vat_amount - expected_vat) < 1 if net_amount > 0 else None
         
         time_saved += TIME_ESTIMATES["vat_calculation"]
         
         # Check duplicates
+        supplier_name = ai_data.get("vendor_name")
         existing = await db.documents.find_one({
             "id": {"$ne": doc_id},
             "tenant_id": tenant_id,
-            "extracted_data.invoice_number": fields.get("invoice_number", {}).get("value"),
+            "extracted_data.invoice_number": ai_data.get("invoice_number"),
             "extracted_data.supplier_name": supplier_name
         })
         is_duplicate = existing is not None
         
         # Build extracted_data for backward compatibility
         extracted_data = {k: v.get("value") if isinstance(v, dict) else v for k, v in fields.items()}
+        extracted_data["supplier_name"] = supplier_name  # Ensure supplier name is set
         
         # Build AI suggestions
         ai_suggestions = {
-            "account_code": account_suggestion.get("account_code"),
-            "account_name": account_suggestion.get("account_name"),
-            "vat_code": account_suggestion.get("vat_code"),
-            "account_confidence": account_suggestion.get("confidence"),
-            "account_source": account_suggestion.get("source"),
+            "account_code": account_code,
+            "account_name": account_name,
+            "vat_code": vat_code,
+            "journal": ai_data.get("journal", "KOB"),
+            "account_confidence": overall_confidence,
+            "account_source": "vendor_learned" if vendor_override_applied else "ai_production",
             "cvr_valid": cvr_valid,
             "vat_consistent": vat_consistent,
+            "vat_rule_applied": ai_data.get("_vat_rule"),
             "is_duplicate": is_duplicate,
-            "vendor_pattern_found": vendor_pattern is not None,
-            "vendor_usage_count": vendor_pattern.get("usage_count") if vendor_pattern else 0
+            "vendor_override_applied": vendor_override_applied,
+            "validation_passed": ai_result.get("validation_passed", True)
         }
         
         # Update document
@@ -1497,6 +1551,7 @@ async def process_document_enhanced(doc_id: str, file_content: bytes, file_type:
                 "extracted_data": extracted_data,
                 "field_confidence": fields,
                 "ai_suggestions": ai_suggestions,
+                "ai_raw_response": ai_data,  # Store raw AI response for learning
                 "overall_confidence": overall_confidence,
                 "uncertain_fields": uncertain_fields,
                 "updated_at": datetime.now(timezone.utc).isoformat()
@@ -1513,19 +1568,21 @@ async def process_document_enhanced(doc_id: str, file_content: bytes, file_type:
             details={
                 "overall_confidence": overall_confidence,
                 "uncertain_fields_count": len(uncertain_fields),
-                "vendor_pattern_used": vendor_pattern is not None
+                "vendor_override_applied": vendor_override_applied,
+                "vat_rule_applied": ai_data.get("_vat_rule"),
+                "ai_version": "production_v2"
             },
             time_saved_minutes=time_saved
         )
         
-        logger.info(f"Document {doc_id} processed with confidence {overall_confidence}")
+        logger.info(f"Document {doc_id} processed with confidence {overall_confidence} (vendor_override={vendor_override_applied})")
         
     except Exception as e:
         logger.error(f"Document processing error for {doc_id}: {e}")
         await db.documents.update_one(
             {"id": doc_id},
             {"$set": {
-                "status": "error",
+                "status": "ai_processing_failed",
                 "error_message": str(e),
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }}
