@@ -23,6 +23,20 @@ import hashlib
 # Import AI integration
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
+# Import production AI modules
+from ai_production import ProductionAIService, AIAnalyticsService, ActiveCompanyService
+from danish_accounting import (
+    DANISH_CHART_OF_ACCOUNTS,
+    DANISH_VAT_CODES, 
+    DANISH_STANDARD_JOURNALS,
+    validate_account_code,
+    validate_vat_code,
+    format_chart_for_prompt,
+    format_vat_codes_for_prompt,
+    get_account_by_code,
+)
+from vat_rules import get_vat_rules, apply_vat_rules, VATRuleFactory
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
