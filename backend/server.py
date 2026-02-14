@@ -59,8 +59,13 @@ EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 # Encryption key for sensitive data
 ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY', Fernet.generate_key().decode())
 
+# Initialize Production AI Services
+production_ai_service = None  # Will be initialized after app startup
+ai_analytics_service = None
+active_company_service = None
+
 # Create the main app
-app = FastAPI(title="AI Accounting Copilot", version="2.0.0-beta")
+app = FastAPI(title="AI Accounting Copilot", version="2.1.0-beta")
 
 # Create routers
 api_router = APIRouter(prefix="/api")
@@ -74,6 +79,8 @@ billing_router = APIRouter(prefix="/billing", tags=["Billing"])
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])
 activity_router = APIRouter(prefix="/activity", tags=["Activity"])
 vendor_router = APIRouter(prefix="/vendors", tags=["Vendors"])
+ai_dashboard_router = APIRouter(prefix="/ai-dashboard", tags=["AI Dashboard"])
+accounting_data_router = APIRouter(prefix="/accounting-data", tags=["Accounting Data"])
 
 security = HTTPBearer()
 
