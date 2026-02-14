@@ -468,6 +468,28 @@ class DeterministicRuleEngine:
         asset_keyword_count = sum(1 for kw in ASSET_KEYWORDS if kw in text_lower)
         expense_keyword_count = sum(1 for kw in EXPENSE_KEYWORDS if kw in text_lower)
         
+        # Vehicle-specific rules (Mercedes invoice)
+        vehicle_keywords = ["bil", "car", "køretøj", "vehicle", "mercedes", "toyota", 
+                          "vw", "volvo", "audi", "bmw", "stelnr", "registreringsafgift"]
+        is_vehicle_purchase = sum(1 for kw in vehicle_keywords if kw in text_lower) >= 2
+        
+        if is_vehicle_purchase and amount_is_high:
+            result["suggested_account"] = "1520"
+            result["suggested_account_name"] = "Biler"
+            result["_rules_applied"].append("asset_rule:vehicle_purchase")
+            return result
+        
+        # IT equipment purchase (Dell partial delivery)
+        it_equipment_keywords = ["computer", "laptop", "server", "precision", "latitude", 
+                                "dell", "hp ", "lenovo", "macbook"]
+        is_it_purchase = sum(1 for kw in it_equipment_keywords if kw in text_lower) >= 2
+        
+        if is_it_purchase and net_amount >= 10000:  # Lower threshold for IT
+            result["suggested_account"] = "1510"
+            result["suggested_account_name"] = "Edb-udstyr"
+            result["_rules_applied"].append("asset_rule:it_equipment_purchase")
+            return result
+        
         # Strong asset signal: high amount AND asset keywords dominate
         is_likely_asset = (
             amount_is_high and 
@@ -480,11 +502,11 @@ class DeterministicRuleEngine:
         
         if is_likely_asset and is_expense_account:
             # Determine specific asset type
-            if any(kw in text_lower for kw in ["bil", "car", "køretøj", "vehicle", "mercedes", "toyota", "vw"]):
+            if any(kw in text_lower for kw in vehicle_keywords):
                 result["suggested_account"] = "1520"
                 result["suggested_account_name"] = "Biler"
                 result["_rules_applied"].append("asset_rule:vehicle")
-            elif any(kw in text_lower for kw in ["computer", "laptop", "server", "it-udstyr", "edb"]):
+            elif any(kw in text_lower for kw in it_equipment_keywords):
                 result["suggested_account"] = "1510"
                 result["suggested_account_name"] = "Edb-udstyr"
                 result["_rules_applied"].append("asset_rule:it_equipment")
