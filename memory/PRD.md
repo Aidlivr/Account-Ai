@@ -1,228 +1,183 @@
 # AI Accounting Copilot - Product Requirements Document
 
-## Version: 2.2.0-beta (Production AI Architecture Complete)
+## Version: 2.3.0-beta (50-Invoice Baseline Evaluation Complete)
 ## Last Updated: Feb 14, 2026
 
 ## Original Problem Statement
-Build an AI Accounting Copilot SaaS with modular architecture for Danish SMEs and accountants. Focus on:
-- Upload invoice → AI extraction → Review → Approve → Voucher creation → Activity logging
-- Integration-ready architecture for e-conomic (live credentials pending)
-- Production-grade AI with vendor learning, validation, and Nordic expansion readiness
+Build an AI Accounting Copilot SaaS with modular architecture for Danish SMEs and accountants.
+
+## 50-Invoice Baseline Test Results
+
+### Summary Metrics
+| Metric | Value | Target | Status |
+|--------|-------|--------|--------|
+| Total Invoices | 50 | 50 | ✅ |
+| Successfully Processed | 50 | 50 | ✅ |
+| Overall Field Accuracy | **94.82%** | >90% | ✅ |
+| Critical Field Accuracy | **100.0%** | >98% | ✅ |
+| Error Rate | 5.18% | <5% | ⚠️ Close |
+| Needs Review | 12.0% | <15% | ✅ |
+
+### Field-Level Accuracy
+| Field | Accuracy | Status |
+|-------|----------|--------|
+| vendor_name | 100.0% | ✅ |
+| invoice_number | 100.0% | ✅ |
+| invoice_date | 100.0% | ✅ |
+| due_date | 100.0% | ✅ |
+| net_amount | 100.0% | ✅ |
+| vat_amount | 100.0% | ✅ |
+| total_amount | 100.0% | ✅ |
+| cvr_number | 93.88% | ✅ |
+| currency | 92.0% | ✅ |
+| journal | 92.0% | ✅ |
+| vat_code | 90.0% | ✅ |
+| suggested_account | 70.0% | ⚠️ Needs improvement |
+
+### Error Classification
+- **Critical Errors:** 0 (amounts always correct)
+- **Major Errors:** 23 (VAT codes, account suggestions)
+- **Minor Errors:** 8 (journals, currency for foreign invoices)
+
+### VAT Code Confusion Matrix
+```
+Expected → Actual
+MOMSFRI → I0 (3 cases) - Insurance, flight tickets, bank fees
+IEU → IREV (1 case) - EU goods misclassified as services
+IKKEMOMS → I0 (1 case) - Government payment
+```
+
+### Account Confusion Pattern
+Most account errors are semantic rather than categorical:
+- 6010 (Husleje) → 6000 (Lokaleomkostninger) - Same category
+- 6320 (Software) → 6310 (IT-udgifter) - Related accounts
+- 1500 (Driftsmidler) → 6100 (Småanskaffelser) - Asset vs expense confusion
+
+### Top 10 Vendors Causing Corrections
+1. Bechtle AG: 4 corrections (EU goods)
+2. Danske Bank A/S: 2 corrections (bank fees)
+3. SAP SE: 2 corrections (EU reverse charge)
+4. 7-Eleven Danmark A/S: 2 corrections (small purchases)
+5. Amazon Web Services, Inc.: 2 corrections (USD)
+6. SKAT: 2 corrections (government)
+7. Tryg Forsikring A/S: 1 correction
+8. Jeudan A/S: 1 correction
+9. SAS Scandinavian Airlines: 1 correction
+10. one.com Group AB: 1 correction
+
+### By Category Performance
+| Category | Count | Field Accuracy | Errors | Needs Review |
+|----------|-------|----------------|--------|--------------|
+| Realistic (Danish vendors) | 25 | 97.33% | 8 | 0 |
+| Edge Cases | 25 | 92.31% | 23 | 6 |
+
+### Invoices Requiring Review
+1. INV-026: SAP SE (EU reverse charge, EUR)
+2. INV-031: Mercedes-Benz (large vehicle purchase)
+3. INV-037: Event Danmark (prepayment/deposit)
+4. INV-039: SKAT (government payment)
+5. INV-044: Schneider Electric (pro forma invoice)
+6. INV-045: Nordea Finans (leasing payment)
 
 ## Architecture
 
 ### Tech Stack
-- **Frontend:** React 19 + Tailwind CSS + Shadcn UI + Framer Motion
-- **Backend:** FastAPI (Python) v2.2.0-beta
+- **Frontend:** React 19 + Tailwind CSS + Shadcn UI
+- **Backend:** FastAPI (Python) v2.3.0-beta
 - **Database:** MongoDB
-- **AI:** OpenAI GPT-5.2 via Emergent LLM Key (Production AI Service)
+- **AI:** OpenAI GPT-5.2 via Emergent LLM Key
 - **OCR:** Tesseract (local)
-- **Payments:** Stripe (admin-activated, live integration pending)
-- **Accounting:** e-conomic (integration-ready, credentials pending)
-- **Email:** MockEmailService (logs to DB, SendGrid pending)
 
-### Code Architecture
+### Code Structure
 ```
-/app
-├── backend/
-│   ├── server.py              # Main FastAPI app (~2900 lines)
-│   ├── ai_production.py       # Production AI Service (NEW)
-│   ├── danish_accounting.py   # Chart of Accounts, VAT, Journals (NEW)
-│   ├── vat_rules.py           # Nordic VAT Rules Module (NEW)
-│   └── requirements.txt
-├── frontend/
-│   └── src/
-│       ├── pages/
-│       │   ├── ai-dashboard/  # AI Performance Dashboard (NEW)
-│       │   ├── auth/
-│       │   ├── dashboard/
-│       │   ├── documents/
-│       │   ├── vouchers/
-│       │   └── admin/
-│       └── components/
-│           ├── beta/          # BetaBanner, FeedbackDialog
-│           ├── export/        # ExportButton
-│           └── layout/
+/app/backend/
+├── server.py                      # Main FastAPI app
+├── ai_production.py               # Production AI Service
+├── danish_accounting.py           # 73 accounts, 10 VAT codes, 8 journals
+├── vat_rules.py                   # Nordic VAT rules (DK active)
+└── tests/
+    ├── invoice_test_suite_data.py      # 25 realistic invoices
+    ├── invoice_test_suite_edge_cases.py # 25 edge cases
+    └── run_invoice_evaluation.py        # Evaluation script
 ```
 
-## Completed Phases
+## Completed Features
 
-### ✅ Phase 1-4 - MVP & Beta Ready (Previous)
-- Authentication, Multi-tenancy, Document processing
-- Draft voucher engine, Activity logging
-- Vendor learning, Billing structure
-
-### ✅ Phase 5 - Beta Activation (Previous)
+### ✅ Beta Activation Phase
 - Beta Mode UI Banner
 - Feedback System
 - Data Export (CSV/PDF)
 - Mock Email Notifications
 
-### ✅ Phase 6 - Production AI Architecture (Feb 14, 2026)
+### ✅ Production AI Architecture
+- Structured prompts (temp 0.1-0.2)
+- Schema validation
+- Vendor override logic (3+ corrections)
+- VAT enforcement rules
+- Confidence adjustment
+- Admin AI Dashboard
 
-#### 6.1 AI Request Structure
-- Temperature: 0.1-0.2 for consistent output
-- Strict JSON-only responses
-- Automatic retry on malformed responses
-- Structured prompts with company context
+### ✅ 50-Invoice Baseline Suite
+- 25 realistic Danish vendor invoices
+- 25 edge case invoices
+- Ground truth JSON labels
+- Automated evaluation script
+- Comprehensive accuracy report
 
-#### 6.2 Danish Accounting Data
-- **Chart of Accounts:** 73 standard Danish accounts (kontoplan)
-  - Assets (1000-1999): 10 accounts
-  - Liabilities (2000-2999): 10 accounts
-  - Revenue (3000-3999): 5 accounts
-  - COGS (4000-4999): 5 accounts
-  - Personnel (5000-5999): 6 accounts
-  - Operating Expenses (6000-6999): 18 accounts
-  - Other Operating (7000-7999): 8 accounts
-  - Depreciation/Financial (8000-8999): 7 accounts
-  - VAT/Tax (9000-9999): 4 accounts
+## Known Limitations
 
-- **VAT Codes:** 10 Danish VAT codes
-  - Input: I25, I0, IEU (EU), IREV (Reverse Charge)
-  - Output: U25, U0, UEU, UEXP
-  - Special: MOMSFRI, IKKEMOMS
+### Account Suggestion (70% accuracy)
+The AI tends to:
+1. Confuse asset purchases with operating expenses
+2. Default to generic expense accounts
+3. Miss specific sub-accounts (6010 vs 6000)
 
-- **Journals:** 8 standard journals
-  - KOB, SALG, BANK, KASSE, LON, AFSKR, PRIMO, DIV
+**Recommended Fix:** Enhance vendor learning to override account suggestions after 1-2 corrections instead of 3.
 
-#### 6.3 Post-Processing Rule Engine
-- Schema validation (required fields, account/VAT code verification)
-- Vendor Override Logic (auto-apply after 3+ consistent uses)
-- VAT Enforcement Rules:
-  - Reverse charge keyword detection
-  - EU acquisition detection
-  - Standard 25% Danish VAT enforcement
-- Confidence adjustment based on vendor history
+### VAT Code Edge Cases
+1. MOMSFRI vs I0 - Need clearer distinction in prompts
+2. EU goods (IEU) vs EU services (IREV) - Need better keyword detection
 
-#### 6.4 Correction Learning System
-- Tracks AI vs final values for every approval
-- Updates vendor defaults after 3 consistent corrections
-- Calculates accuracy percentages (account, VAT, overall)
+### Foreign Currency
+AI defaults to DKK for non-DKK invoices. Need to improve currency detection from OCR text.
 
-#### 6.5 Active Company Tracking
-- Tracks monthly activity for billing
-- Active = at least 1 invoice processed OR 1 voucher pushed
+## Recommendations for Production
 
-#### 6.6 Admin AI Dashboard
-- Overall AI Accuracy %
-- Account Accuracy %
-- VAT Accuracy %
-- Average Confidence Score
-- Total Extractions
-- Error Rate %
-- Time Saved (hours)
-- Most Corrected Accounts
-- Vendor Accuracy Breakdown
+### Immediate (P0)
+1. Lower vendor learning threshold from 3 to 2 corrections
+2. Add explicit MOMSFRI keywords (forsikring, international flybillet)
+3. Improve EU goods vs services detection
 
-#### 6.7 Nordic VAT Module (Future-Ready)
-- Modular VATRuleEngine interface
-- DK (Denmark): ACTIVE - 25% standard rate
-- SE (Sweden): PREPARED - 25%, 12%, 6% rates
-- NO (Norway): PREPARED - 25%, 15%, 12% rates
+### Short-term (P1)
+1. Add currency detection from invoice text
+2. Improve asset vs expense classification
+3. Add pro forma invoice detection
 
-## API Endpoints (v2.2.0-beta)
+### Medium-term (P2)
+1. Train on real anonymized invoices
+2. Implement accountant correction feedback loop
+3. Add invoice image quality scoring
 
-### Accounting Data (NEW)
-- GET /api/accounting-data/chart-of-accounts
-- GET /api/accounting-data/vat-codes
-- GET /api/accounting-data/journals
-- GET /api/accounting-data/available-countries
-- POST /api/accounting-data/company/{tenant_id}/custom-accounts
-- POST /api/accounting-data/company/{tenant_id}/custom-journals
+## Test Suite Maintenance
 
-### AI Dashboard (NEW)
-- GET /api/ai-dashboard/stats
-- GET /api/ai-dashboard/corrections
-- GET /api/ai-dashboard/vendor-accuracy/{tenant_id}
-- GET /api/ai-dashboard/active-companies/{year}/{month}
-
-### Previous Endpoints (Auth, Tenants, Documents, Vouchers, etc.)
-- All previous endpoints remain functional
-
-## New Database Collections
-
-### ai_corrections
-```json
-{
-  "id": "uuid",
-  "tenant_id": "string",
-  "document_id": "string",
-  "vendor_name": "string",
-  "ai_account": "string",
-  "final_account": "string",
-  "ai_vat": "string",
-  "final_vat": "string",
-  "ai_confidence": "float",
-  "was_correct": "boolean",
-  "corrected_by": "string",
-  "timestamp": "datetime"
-}
+### Running Evaluation
+```bash
+cd /app/backend
+python3 tests/run_invoice_evaluation.py
 ```
 
-### ai_stats
-```json
-{
-  "tenant_id": "string",
-  "total_extractions": "int",
-  "overall_accuracy": "float",
-  "account_accuracy": "float",
-  "vat_accuracy": "float",
-  "updated_at": "datetime"
-}
-```
+### Adding New Test Cases
+1. Add invoice to `invoice_test_suite_data.py` or `invoice_test_suite_edge_cases.py`
+2. Include ground truth JSON
+3. Re-run evaluation
 
-### monthly_activity
-```json
-{
-  "period": "YYYY-MM",
-  "active_count": "int",
-  "companies": [{"tenant_id", "invoices_processed", "vouchers_created"}],
-  "calculated_at": "datetime"
-}
-```
-
-## Test Results (Latest - iteration_4.json)
-
-- **Backend:** 100% (17/17 tests passed)
-- **Frontend:** 100% (all AI Dashboard UI components working)
-- **Version:** 2.2.0-beta
-- **Test Users:** admin@aiaccounting.dk / admin123, betatest@example.dk / test123
-
-## MOCKED Integrations (By Design)
-
-1. **Email Notifications:** MockEmailService logs to db.email_logs
-2. **Stripe Payments:** Admin manually activates subscriptions
-3. **e-conomic API:** Integration-ready placeholder structure
+### Report Location
+`/app/backend/test_reports/invoice_evaluation_report.json`
 
 ## Next Steps
 
-### P0 - Required for Production
-1. Live Stripe webhooks integration
-2. Real e-conomic API connection
-3. SendGrid email integration
-4. Invoice processing with real OCR + AI (currently uses simulation)
-
-### P1 - High Priority
-1. Bank transaction import (CSV/OFX)
-2. PDF report generation for VAT
-3. Advanced reconciliation algorithms
-
-### P2 - Medium Priority
-1. Activate Swedish VAT rules
-2. Activate Norwegian VAT rules
-3. OAuth login (Google, Microsoft)
-
-### P3 - Nice to Have
-1. Danish language support (UI)
-2. Mobile responsive improvements
-3. Extended export options (Excel)
-
-## Definition of Done (Production AI)
-
-✅ AI returns structured JSON reliably
-✅ No hallucinated accounts (validated against chart)
-✅ Vendor learning overrides function correctly
-✅ Confidence score reflects correction history
-✅ Error rate tracking implemented
-⏳ 50 mixed invoices tested successfully (pending real invoice data)
+1. 🔴 **P0**: Improve account suggestion accuracy to >85%
+2. 🔴 **P0**: Fix MOMSFRI vs I0 confusion
+3. 🟡 **P1**: Add currency detection
+4. 🟡 **P1**: Test with 25 real anonymized invoices
+5. 🟢 **P2**: Implement correction feedback loop
