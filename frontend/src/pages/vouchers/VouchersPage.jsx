@@ -25,6 +25,7 @@ import {
 } from '../../components/ui/dialog';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '../../lib/utils';
+import { ExportButton } from '../../components/export/ExportButton';
 
 export default function VouchersPage() {
     const { currentTenant } = useTenant();
