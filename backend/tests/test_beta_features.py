@@ -41,10 +41,10 @@ class TestUserAuthentication:
         })
         assert response.status_code == 200, f"Login failed: {response.text}"
         data = response.json()
-        assert "token" in data
+        assert "access_token" in data
         assert "user" in data
         print(f"✓ Beta user login successful: {data['user']['email']}")
-        return data["token"]
+        return data["access_token"]
     
     def test_register_admin_user(self):
         """Register a new admin user for testing admin endpoints"""
@@ -77,7 +77,7 @@ class TestFeedbackAPI:
             "password": TEST_USER_PASSWORD
         })
         if response.status_code == 200:
-            return response.json()["token"]
+            return response.json()["access_token"]
         pytest.skip("Could not authenticate beta user")
     
     def test_submit_feedback(self, auth_token):
