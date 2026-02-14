@@ -13,8 +13,10 @@ import RegisterPage from "./pages/auth/RegisterPage";
 import DashboardPage from "./pages/dashboard/DashboardPage";
 import CompaniesPage from "./pages/companies/CompaniesPage";
 import DocumentsPage from "./pages/documents/DocumentsPage";
+import VouchersPage from "./pages/vouchers/VouchersPage";
 import ReconciliationPage from "./pages/reconciliation/ReconciliationPage";
 import VATPage from "./pages/vat/VATPage";
+import ActivityPage from "./pages/activity/ActivityPage";
 import BillingPage from "./pages/billing/BillingPage";
 import AccountantDashboard from "./pages/accountant/AccountantDashboard";
 import AdminPanel from "./pages/admin/AdminPanel";
@@ -36,8 +38,10 @@ function App() {
                             <Route path="dashboard" element={<DashboardPage />} />
                             <Route path="companies" element={<CompaniesPage />} />
                             <Route path="documents" element={<DocumentsPage />} />
+                            <Route path="vouchers" element={<VouchersPage />} />
                             <Route path="reconciliation" element={<ReconciliationPage />} />
                             <Route path="vat" element={<VATPage />} />
+                            <Route path="activity" element={<ActivityPage />} />
                             <Route path="billing" element={<BillingPage />} />
                             <Route path="accountant" element={<AccountantDashboard />} />
                             <Route path="admin" element={<AdminPanel />} />
