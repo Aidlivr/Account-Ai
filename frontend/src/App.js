@@ -21,6 +21,7 @@ import BillingPage from "./pages/billing/BillingPage";
 import AccountantDashboard from "./pages/accountant/AccountantDashboard";
 import AdminPanel from "./pages/admin/AdminPanel";
 import SettingsPage from "./pages/settings/SettingsPage";
+import AIDashboardPage from "./pages/ai-dashboard/AIDashboardPage";
 
 function App() {
     return (
@@ -45,6 +46,7 @@ function App() {
                             <Route path="billing" element={<BillingPage />} />
                             <Route path="accountant" element={<AccountantDashboard />} />
                             <Route path="admin" element={<AdminPanel />} />
+                            <Route path="ai-dashboard" element={<AIDashboardPage />} />
                             <Route path="settings" element={<SettingsPage />} />
                         </Route>
 
