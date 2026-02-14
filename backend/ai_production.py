@@ -326,7 +326,7 @@ Return JSON in this exact format:
             if val is not None and not isinstance(val, (int, float)):
                 try:
                     float(val)
-                except:
+                except (ValueError, TypeError):
                     errors.append(f"Non-numeric {amount_field}: {val}")
         
         # Validate confidence score
