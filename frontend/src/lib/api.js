@@ -50,6 +50,10 @@ export const tenantAPI = {
     getOne: (id) => api.get(`/tenants/${id}`),
     update: (id, data) => api.put(`/tenants/${id}`, data),
     addUser: (tenantId, email) => api.post(`/tenants/${tenantId}/users/${email}`),
+    // Provider Configuration
+    getProviderConfig: (tenantId) => api.get(`/tenants/${tenantId}/provider`),
+    updateProviderConfig: (tenantId, config) => api.put(`/tenants/${tenantId}/provider`, config),
+    testProviderConnection: (tenantId) => api.post(`/tenants/${tenantId}/provider/test`),
 };
 
 // Document API
@@ -69,8 +73,36 @@ export const documentAPI = {
         return api.get(`/documents/?${params.toString()}`);
     },
     getOne: (id) => api.get(`/documents/${id}`),
-    approve: (id, approved, modifications = null) => 
-        api.put(`/documents/${id}/approve`, { approved, modifications }),
+    editFields: (id, fieldUpdates) => api.put(`/documents/${id}/edit`, { field_updates: fieldUpdates }),
+    approve: (id, approved, finalData = null, accountMapping = null) => 
+        api.put(`/documents/${id}/approve`, { approved, final_data: finalData, account_mapping: accountMapping }),
+};
+
+// Voucher API
+export const voucherAPI = {
+    getAll: (tenantId, status = null) => {
+        const params = status ? `?status=${status}` : '';
+        return api.get(`/vouchers/${tenantId}${params}`);
+    },
+    getOne: (tenantId, voucherId) => api.get(`/vouchers/${tenantId}/${voucherId}`),
+    push: (tenantId, voucherId) => api.post(`/vouchers/${tenantId}/push`, { voucher_id: voucherId }),
+};
+
+// Vendor API
+export const vendorAPI = {
+    getPatterns: (tenantId) => api.get(`/vendors/${tenantId}`),
+    updatePattern: (tenantId, patternId, updates) => api.put(`/vendors/${tenantId}/${patternId}`, updates),
+};
+
+// Activity API
+export const activityAPI = {
+    getLogs: (tenantId, activityType = null, limit = 100) => {
+        const params = new URLSearchParams();
+        if (activityType) params.append('activity_type', activityType);
+        params.append('limit', limit);
+        return api.get(`/activity/${tenantId}?${params.toString()}`);
+    },
+    getTimeSaved: (tenantId, days = 30) => api.get(`/activity/${tenantId}/time-saved?days=${days}`),
 };
 
 // Reconciliation API
@@ -95,7 +127,7 @@ export const vatAPI = {
 // Billing API
 export const billingAPI = {
     getPlans: () => api.get('/billing/plans'),
-    subscribe: (planId) => api.post('/billing/subscribe', { plan_id: planId }),
+    requestSubscription: (planId) => api.post(`/billing/request?plan_id=${planId}`),
     getCurrentSubscription: () => api.get('/billing/subscription'),
     cancelSubscription: () => api.delete('/billing/subscription'),
 };
@@ -111,6 +143,9 @@ export const adminAPI = {
     getUsers: () => api.get('/admin/users'),
     getStats: () => api.get('/admin/stats'),
     updateUserRole: (userId, role) => api.put(`/admin/users/${userId}/role?role=${role}`),
+    getSubscriptionRequests: () => api.get('/admin/subscription-requests'),
+    activateSubscription: (userId, planId, notes = null) => 
+        api.post('/admin/subscriptions/activate', { user_id: userId, plan_id: planId, notes }),
 };
 
 export default api;
