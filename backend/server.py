@@ -2686,6 +2686,182 @@ async def get_email_logs(user: dict = Depends(require_role([UserRole.ADMIN])), l
     logs = await db.email_logs.find({}, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
     return {"logs": logs, "total": len(logs)}
 
+# ==================== AI DASHBOARD ROUTES ====================
+
+@ai_dashboard_router.get("/stats")
+async def get_ai_dashboard_stats(
+    tenant_id: Optional[str] = None,
+    user: dict = Depends(require_role([UserRole.ADMIN, UserRole.ACCOUNTANT]))
+):
+    """Get AI accuracy and performance statistics"""
+    global ai_analytics_service
+    if not ai_analytics_service:
+        ai_analytics_service = AIAnalyticsService(db)
+    
+    # For non-admin, limit to their tenants
+    if user["role"] != UserRole.ADMIN and tenant_id:
+        tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+        if not tenant or user["id"] not in tenant.get("users", []):
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    stats = await ai_analytics_service.get_dashboard_stats(tenant_id)
+    return stats
+
+@ai_dashboard_router.get("/corrections")
+async def get_ai_corrections(
+    tenant_id: Optional[str] = None,
+    limit: int = 100,
+    user: dict = Depends(require_role([UserRole.ADMIN]))
+):
+    """Get AI correction history"""
+    query = {}
+    if tenant_id:
+        query["tenant_id"] = tenant_id
+    
+    corrections = await db.ai_corrections.find(query, {"_id": 0}).sort("timestamp", -1).limit(limit).to_list(limit)
+    return {"corrections": corrections, "total": len(corrections)}
+
+@ai_dashboard_router.get("/vendor-accuracy")
+async def get_vendor_accuracy(
+    tenant_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Get vendor-specific accuracy stats"""
+    tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not tenant or (user["id"] not in tenant.get("users", []) and user["role"] != UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    pipeline = [
+        {"$match": {"tenant_id": tenant_id}},
+        {"$group": {
+            "_id": "$vendor_name",
+            "total": {"$sum": 1},
+            "correct": {"$sum": {"$cond": ["$was_correct", 1, 0]}},
+            "avg_confidence": {"$avg": "$ai_confidence"}
+        }},
+        {"$project": {
+            "vendor_name": "$_id",
+            "total_extractions": "$total",
+            "correct_extractions": "$correct",
+            "accuracy_percent": {"$multiply": [{"$divide": ["$correct", "$total"]}, 100]},
+            "avg_confidence": 1
+        }},
+        {"$sort": {"total_extractions": -1}}
+    ]
+    
+    vendors = await db.ai_corrections.aggregate(pipeline).to_list(100)
+    return {"vendors": vendors}
+
+@ai_dashboard_router.get("/active-companies/{year}/{month}")
+async def get_active_companies(
+    year: int,
+    month: int,
+    user: dict = Depends(require_role([UserRole.ADMIN]))
+):
+    """Get active companies for a given month (for billing)"""
+    global active_company_service
+    if not active_company_service:
+        active_company_service = ActiveCompanyService(db)
+    
+    companies = await active_company_service.calculate_monthly_activity(year, month)
+    return {
+        "period": f"{year}-{month:02d}",
+        "active_count": len(companies),
+        "companies": companies
+    }
+
+# ==================== ACCOUNTING DATA ROUTES ====================
+
+@accounting_data_router.get("/chart-of-accounts")
+async def get_chart_of_accounts(user: dict = Depends(get_current_user)):
+    """Get standard Danish chart of accounts"""
+    return {
+        "accounts": DANISH_CHART_OF_ACCOUNTS,
+        "total": len(DANISH_CHART_OF_ACCOUNTS),
+        "country": "DK"
+    }
+
+@accounting_data_router.get("/vat-codes")
+async def get_vat_codes(user: dict = Depends(get_current_user)):
+    """Get Danish VAT codes"""
+    return {
+        "vat_codes": DANISH_VAT_CODES,
+        "total": len(DANISH_VAT_CODES),
+        "country": "DK"
+    }
+
+@accounting_data_router.get("/journals")
+async def get_journals(user: dict = Depends(get_current_user)):
+    """Get standard Danish journals"""
+    return {
+        "journals": DANISH_STANDARD_JOURNALS,
+        "total": len(DANISH_STANDARD_JOURNALS),
+        "country": "DK"
+    }
+
+@accounting_data_router.get("/available-countries")
+async def get_available_countries(user: dict = Depends(get_current_user)):
+    """Get list of available country VAT rules"""
+    return {
+        "countries": VATRuleFactory.get_available_countries(),
+        "active": "DK"
+    }
+
+@accounting_data_router.post("/company/{tenant_id}/custom-accounts")
+async def add_company_custom_account(
+    tenant_id: str,
+    account: Dict[str, Any],
+    user: dict = Depends(get_current_user)
+):
+    """Add a custom account for a company"""
+    tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not tenant or (tenant["owner_id"] != user["id"] and user["role"] != UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="Only owner can add custom accounts")
+    
+    custom_account = {
+        "id": str(uuid.uuid4()),
+        "tenant_id": tenant_id,
+        "code": account.get("code"),
+        "name": account.get("name"),
+        "type": account.get("type", "expense"),
+        "active": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.company_accounts.insert_one(custom_account)
+    
+    # Clear cache
+    global production_ai_service
+    if production_ai_service:
+        production_ai_service.clear_cache(tenant_id)
+    
+    return {"success": True, "account": custom_account}
+
+@accounting_data_router.post("/company/{tenant_id}/custom-journals")
+async def add_company_custom_journal(
+    tenant_id: str,
+    journal: Dict[str, Any],
+    user: dict = Depends(get_current_user)
+):
+    """Add a custom journal for a company"""
+    tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not tenant or (tenant["owner_id"] != user["id"] and user["role"] != UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="Only owner can add custom journals")
+    
+    custom_journal = {
+        "id": str(uuid.uuid4()),
+        "tenant_id": tenant_id,
+        "code": journal.get("code"),
+        "name": journal.get("name"),
+        "type": journal.get("type", "general"),
+        "active": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.company_journals.insert_one(custom_journal)
+    
+    return {"success": True, "journal": custom_journal}
+
 # ==================== INCLUDE ROUTERS ====================
 
 api_router.include_router(auth_router)
@@ -2701,6 +2877,8 @@ api_router.include_router(admin_router)
 api_router.include_router(feedback_router)
 api_router.include_router(export_router)
 api_router.include_router(email_router)
+api_router.include_router(ai_dashboard_router)
+api_router.include_router(accounting_data_router)
 
 app.include_router(api_router)
 
