@@ -1715,7 +1715,9 @@ async def edit_document_fields(doc_id: str, edit_request: DocumentEditRequest, u
 
 @document_router.put("/{doc_id}/approve")
 async def approve_document(doc_id: str, approval: DocumentApproval, user: dict = Depends(get_current_user)):
-    """Approve document and create draft voucher"""
+    """Approve document and create draft voucher with correction learning"""
+    global production_ai_service
+    
     doc = await db.documents.find_one({"id": doc_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -1734,8 +1736,30 @@ async def approve_document(doc_id: str, approval: DocumentApproval, user: dict =
         account_mapping = approval.account_mapping or {
             "account_code": ai_suggestions.get("account_code", "4000"),
             "account_name": ai_suggestions.get("account_name", "Varekøb"),
-            "vat_code": ai_suggestions.get("vat_code", "25")
+            "vat_code": ai_suggestions.get("vat_code", "I25")
         }
+        
+        # Record AI correction for learning
+        if production_ai_service:
+            ai_raw = doc.get("ai_raw_response", {})
+            vendor_name = final_data.get("supplier_name") or extracted_data.get("supplier_name")
+            
+            if vendor_name:
+                await production_ai_service.record_correction(
+                    tenant_id=doc["tenant_id"],
+                    document_id=doc_id,
+                    vendor_name=vendor_name,
+                    ai_data={
+                        "suggested_account": ai_suggestions.get("account_code"),
+                        "vat_code": ai_suggestions.get("vat_code"),
+                        "confidence_score": doc.get("overall_confidence", 0)
+                    },
+                    final_data={
+                        "account_code": account_mapping.get("account_code"),
+                        "vat_code": account_mapping.get("vat_code")
+                    },
+                    user_id=user["id"]
+                )
         
         # Create draft voucher
         voucher = await VoucherService.create_draft_voucher(
@@ -1746,7 +1770,7 @@ async def approve_document(doc_id: str, approval: DocumentApproval, user: dict =
             user_id=user["id"]
         )
         
-        # Learn vendor pattern
+        # Learn vendor pattern (legacy method - kept for compatibility)
         await VendorLearningService.learn_from_approval(
             tenant_id=doc["tenant_id"],
             extracted_data=extracted_data,
@@ -1777,7 +1801,8 @@ async def approve_document(doc_id: str, approval: DocumentApproval, user: dict =
             tenant_id=doc["tenant_id"],
             details={
                 "voucher_id": voucher["id"],
-                "total_amount": final_data.get("total_amount")
+                "total_amount": final_data.get("total_amount"),
+                "ai_was_overridden": ai_suggestions.get("account_code") != account_mapping.get("account_code")
             }
         )
         
