@@ -6,7 +6,9 @@ import {
     AlertTriangle, 
     ArrowLeftRight, 
     TrendingUp,
-    Upload
+    Upload,
+    Receipt,
+    ArrowRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -15,6 +17,7 @@ import { useTenant } from '../../contexts/TenantContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Progress } from '../../components/ui/progress';
+import { Badge } from '../../components/ui/badge';
 import { getRiskLevel } from '../../lib/utils';
 
 const container = {
@@ -77,6 +80,25 @@ export default function DashboardPage() {
                 </Button>
             </div>
 
+            {/* Time Saved Banner */}
+            {stats?.time_saved_hours > 0 && (
+                <motion.div variants={item} initial="hidden" animate="show">
+                    <Card className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
+                        <CardContent className="p-6 flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-muted-foreground uppercase tracking-wider">Time Saved This Month</p>
+                                <p className="text-3xl font-bold font-mono mt-1">
+                                    {stats?.time_saved_hours || 0} <span className="text-lg font-normal">hours</span>
+                                </p>
+                            </div>
+                            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Clock className="h-8 w-8 text-primary" />
+                            </div>
+                        </CardContent>
+                    </Card>
+                </motion.div>
+            )}
+
             {/* Stats Grid */}
             <motion.div 
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
@@ -124,7 +146,7 @@ export default function DashboardPage() {
                     <Card className="stat-card" data-testid="stat-processed-documents">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Processed
+                                Approved
                             </CardTitle>
                             <CheckCircle className="h-5 w-5 text-success" />
                         </CardHeader>
@@ -133,26 +155,26 @@ export default function DashboardPage() {
                                 {stats?.processed_documents || 0}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                                Approved invoices
+                                Processed invoices
                             </p>
                         </CardContent>
                     </Card>
                 </motion.div>
 
                 <motion.div variants={item}>
-                    <Card className="stat-card" data-testid="stat-time-saved">
+                    <Card className="stat-card" data-testid="stat-vouchers">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Time Saved
+                                Ready Vouchers
                             </CardTitle>
-                            <TrendingUp className="h-5 w-5 text-info" />
+                            <Receipt className="h-5 w-5 text-info" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-3xl font-bold font-mono text-info">
-                                {stats?.time_saved_hours || 0}h
+                                {stats?.ready_to_push_vouchers || 0}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                                Hours of manual work
+                                Ready to push
                             </p>
                         </CardContent>
                     </Card>
@@ -240,6 +262,30 @@ export default function DashboardPage() {
             </motion.div>
 
             {/* Quick Actions */}
+            {stats?.ready_to_push_vouchers > 0 && (
+                <motion.div variants={item} initial="hidden" animate="show">
+                    <Card className="border-warning/50 bg-warning/5">
+                        <CardContent className="p-6 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center">
+                                    <ArrowRight className="h-6 w-6 text-warning" />
+                                </div>
+                                <div>
+                                    <p className="font-semibold">Vouchers Ready to Push</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {stats.ready_to_push_vouchers} voucher(s) awaiting push to accounting system
+                                    </p>
+                                </div>
+                            </div>
+                            <Button onClick={() => navigate('/vouchers')} data-testid="view-vouchers-btn">
+                                View Vouchers
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </motion.div>
+            )}
+
+            {/* No Company Card */}
             {!currentTenant && (
                 <motion.div variants={item} initial="hidden" animate="show">
                     <Card className="border-dashed border-2" data-testid="no-company-card">
