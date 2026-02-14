@@ -11,7 +11,8 @@ import {
     Settings,
     LogOut,
     ChevronDown,
-    UsersRound
+    UsersRound,
+    Brain
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
@@ -38,10 +39,12 @@ const navItems = [
 
 const accountantItems = [
     { to: '/accountant', icon: UsersRound, label: 'Client Overview' },
+    { to: '/ai-dashboard', icon: Brain, label: 'AI Performance' },
 ];
 
 const adminItems = [
     { to: '/admin', icon: Users, label: 'Admin Panel' },
+    { to: '/ai-dashboard', icon: Brain, label: 'AI Dashboard' },
 ];
 
 export const Sidebar = () => {
