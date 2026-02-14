@@ -148,4 +148,18 @@ export const adminAPI = {
         api.post('/admin/subscriptions/activate', { user_id: userId, plan_id: planId, notes }),
 };
 
+// Feedback API (Beta)
+export const feedbackAPI = {
+    submit: (data) => api.post('/feedback', data),
+    getAll: () => api.get('/feedback'),
+};
+
+// Export API (Beta)
+export const exportAPI = {
+    exportVouchers: (tenantId, options = {}) => 
+        api.post(`/export/${tenantId}/vouchers`, options, {
+            responseType: options.format === 'csv' ? 'text' : 'json'
+        }),
+};
+
 export default api;
