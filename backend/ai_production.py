@@ -24,6 +24,9 @@ from danish_accounting import (
     format_journals_for_prompt,
 )
 
+# Import deterministic rule engine
+from rule_engine import apply_deterministic_rules, CompanyConfig
+
 logger = logging.getLogger(__name__)
 
 # ==================== AI CONFIGURATION ====================
