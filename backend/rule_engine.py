@@ -85,7 +85,8 @@ ACCOUNT_CATEGORY_KEYWORDS: Dict[AccountCategory, List[str]] = {
         "software", "licens", "license", "saas", "cloud", "abonnement software",
         "microsoft", "adobe", "salesforce", "hubspot", "slack", "zoom",
         "office 365", "google workspace", "dropbox", "github", "atlassian",
-        "subscription", "annual license", "årslicens"
+        "subscription", "annual license", "årslicens",
+        "one.com", "webhotel", "hosting", "domæne", "ssl"
     ],
     AccountCategory.IT_EQUIPMENT: [
         "computer", "laptop", "pc ", "server", "printer", "skærm", "monitor",
