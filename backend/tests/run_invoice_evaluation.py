@@ -108,7 +108,7 @@ class EvaluationMetrics:
             ("vat_amount", "critical", self._compare_amount),
             ("total_amount", "critical", self._compare_amount),
             ("vat_code", "major", self._compare_string),
-            ("suggested_account", "major", self._compare_string),
+            ("suggested_account", "major", self._compare_account),
             ("journal", "minor", self._compare_string),
         ]
         
