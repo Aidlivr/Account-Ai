@@ -90,7 +90,8 @@ ACCOUNT_CATEGORY_KEYWORDS: Dict[AccountCategory, List[str]] = {
     AccountCategory.IT_EQUIPMENT: [
         "computer", "laptop", "pc ", "server", "printer", "skærm", "monitor",
         "tastatur", "mus", "mouse", "keyboard", "dell", "hp ", "lenovo",
-        "apple", "macbook", "hardware", "it-udstyr", "docking"
+        "apple", "macbook", "hardware", "it-udstyr", "docking",
+        "dustin", "bechtle", "precision", "latitude"
     ],
     AccountCategory.LEGAL: [
         "advokat", "lawyer", "juridisk", "legal", "retsafgift", "sagkyndig",
