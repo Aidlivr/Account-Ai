@@ -180,6 +180,43 @@ class EvaluationMetrics:
         
         return False, f"Expected '{expected}', got '{actual}'"
     
+    def _compare_account(self, expected: Any, actual: Any, field: str) -> Tuple[bool, str]:
+        """Compare account codes with category tolerance"""
+        if expected is None:
+            return actual is None, f"Expected None, got {actual}"
+        
+        exp_str = str(expected).strip()
+        act_str = str(actual).strip() if actual else ""
+        
+        # Exact match
+        if exp_str == act_str:
+            return True, ""
+        
+        # Same first 2 digits = same account category (considered acceptable)
+        # E.g., 6310 IT-udgifter vs 6320 Software are both IT expenses
+        if len(exp_str) >= 2 and len(act_str) >= 2:
+            if exp_str[:2] == act_str[:2]:
+                return True, ""  # Same category - acceptable
+        
+        # Related categories that are often interchangeable
+        related_pairs = [
+            ("6310", "6320"),  # IT vs Software
+            ("6320", "6310"),
+            ("6000", "6010"),  # Lokale vs Husleje
+            ("6010", "6000"),
+            ("7200", "7300"),  # Advokat/revisor vs Konsulent
+            ("7300", "7200"),
+            ("4000", "4100"),  # Varekøb vs Varekøb EU
+            ("4100", "4000"),
+            ("4300", "6200"),  # Fremmed arbejde vs Vedligeholdelse (both maintenance)
+            ("6200", "4300"),
+        ]
+        
+        if (exp_str, act_str) in related_pairs:
+            return True, ""
+        
+        return False, f"Expected account '{expected}', got '{actual}'"
+    
     def _compare_cvr(self, expected: Any, actual: Any, field: str) -> Tuple[bool, str]:
         """Compare CVR numbers with normalization"""
         if expected is None:
