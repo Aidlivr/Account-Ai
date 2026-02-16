@@ -1,9 +1,34 @@
 # AI Accounting Copilot - Product Requirements Document
 
-## Version: 2.4.0-beta (Rule Engine Improvement Phase Complete)
-## Last Updated: Feb 15, 2026
+## Version: 2.5.0-beta (Landing Page Complete)
+## Last Updated: Feb 16, 2026
 
-## 50-Invoice Baseline Test Results (Final)
+## What's New in v2.5.0
+
+### Professional Landing Page (Completed)
+A fully functional, European-style B2B landing page has been built for the AI Accounting Copilot (branded as "Accountrix"). The landing page is designed to attract Danish and European accounting firms to the beta program.
+
+#### Sections Implemented:
+1. **Hero Section** - Value proposition with mock invoice review queue
+2. **Problem Section** - 6 pain points addressed
+3. **Solution Section** - 6-step workflow diagram
+4. **Features Section** - 6 key features with icons
+5. **Validation Results** - AI accuracy metrics display
+6. **Security Section** - Compliance and data security focus
+7. **Pricing Section** - 399 DKK/month base + 69 DKK per company
+8. **Beta Invitation Form** - Full backend integration
+9. **Footer** - Contact and legal links
+
+#### Backend Integration:
+- New `/api/beta/request-access` endpoint (public, no auth required)
+- Beta requests stored in `beta_requests` MongoDB collection
+- Duplicate submission detection
+- Admin endpoints for viewing/managing requests
+- Mock email notifications for new requests
+
+---
+
+## 50-Invoice Baseline Test Results (Previous Phase)
 
 ### Summary vs Targets
 | Metric | Target | Achieved | Status |
@@ -32,56 +57,7 @@
 | suggested_account | 88.0% | Improved from 70% |
 | journal | 98.0% | Fixed by cash/bank rules |
 
-### By Category Performance
-| Category | Count | Field Accuracy | Errors | Needs Review |
-|----------|-------|----------------|--------|--------------|
-| Realistic | 25 | **99.33%** | 2 | 0 |
-| Edge Cases | 25 | 96.32% | 11 | 6 |
-
-### Rule Engine Improvements Implemented
-
-#### 1. Keyword-Based Account Category Rules
-- 26 account categories with comprehensive keyword lists
-- Categories: insurance, telecom, fuel, rent, SaaS, legal, etc.
-- Each category maps to a default account code
-
-#### 2. Asset vs Expense Threshold Logic
-- Configurable per company (default: 15,000 DKK)
-- Vehicle detection (Mercedes, BMW, etc.) → Account 1520
-- IT equipment detection → Account 1510
-- Furniture detection → Account 1500
-
-#### 3. MOMSFRI Keyword Mapping
-- Insurance keywords: forsikring, præmie, police
-- Bank keywords: bankgebyr, kontogebyr, rente
-- International transport: fly, flight, international
-- Government: skat, a-skat, am-bidrag
-
-#### 4. Currency Detection
-- Pattern-based detection for EUR, USD, GBP, SEK, NOK
-- Country/city name detection
-- VAT ID format detection
-
-#### 5. Journal Rules
-- Cash payment detection → KASSE journal
-- Bank fees detection → BANK journal
-
-### Files Created/Modified
-- `/app/backend/rule_engine.py` - New deterministic rule engine (450 lines)
-- `/app/backend/ai_production.py` - Integrated rule engine
-- `/app/backend/tests/run_invoice_evaluation.py` - Enhanced evaluation metrics
-
-## Error Analysis
-
-### Critical Errors (3)
-All from INV-044 (Pro Forma invoice - intentionally complex edge case)
-
-### Major Errors (8)
-- Account category confusion in edge cases
-- EU goods vs services classification
-
-### Minor Errors (2)
-- Journal selection for unusual scenarios
+---
 
 ## Architecture
 
@@ -97,45 +73,120 @@ All from INV-044 (Pro Forma invoice - intentionally complex edge case)
 8. Final Result
 ```
 
-### Rule Engine Categories
-```python
-ACCOUNT_CATEGORIES = [
-    "office_supplies", "it_equipment", "software", "telecom",
-    "fuel", "vehicle", "rent", "utilities", "insurance",
-    "legal", "accounting", "consulting", "marketing", "travel",
-    "representation", "education", "postal", "cleaning",
-    "bank_fees", "raw_materials", "subcontractor", "personnel",
-    "prepayment", "government", "leasing", "fixed_asset"
-]
+### Key Files
+```
+/app
+├── backend/
+│   ├── server.py                 # Main FastAPI app with beta router
+│   ├── ai_production.py          # Production AI service
+│   ├── danish_accounting.py      # Chart of accounts, VAT codes
+│   ├── rule_engine.py            # Deterministic rule engine
+│   ├── vat_rules.py              # Modular VAT logic
+│   └── tests/
+│       ├── invoice_test_suite_data.py
+│       ├── invoice_test_suite_edge_cases.py
+│       └── run_invoice_evaluation.py
+├── frontend/
+│   └── src/
+│       ├── App.js                # Main router
+│       ├── pages/
+│       │   └── landing/LandingPage.jsx  # Professional landing page
+│       └── components/
+│           └── beta/             # BetaBanner, FeedbackDialog
+└── memory/
+    └── PRD.md
 ```
 
-## Next Steps
+---
 
-### P0 - Ready for Production
-1. ✅ Account accuracy ≥85% achieved
-2. ✅ Error rate <4% achieved
-3. ✅ Rule engine implemented and tested
+## Completed Features
 
-### P1 - Recommended Improvements
-1. Add more vendor-specific keyword mappings
-2. Implement pro forma invoice detection
-3. Add leasing-specific account rules
-4. Test with 25 real anonymized invoices
+### Phase 1: Beta-Ready MVP ✅
+- Multi-tenant authentication (SME, Accountant, Admin roles)
+- Document upload and management
+- AI-powered invoice extraction
+- Voucher creation workflow
+- Basic dashboard
+
+### Phase 2: Production AI Architecture ✅
+- Deterministic rule engine
+- Vendor learning system
+- Danish VAT rules implementation
+- 50-invoice test suite
+- AI accuracy dashboard
+
+### Phase 3: Beta Activation ✅
+- Site-wide beta banner
+- In-app feedback dialog
+- Mock data export (CSV/PDF)
+- AI error reporting
+
+### Phase 4: Landing Page ✅
+- Professional B2B landing page
+- Beta request form with backend
+- Admin management endpoints
+
+---
+
+## API Endpoints
+
+### Public Endpoints
+- `POST /api/beta/request-access` - Submit beta access request
+
+### Protected Endpoints
+- `GET /api/beta/requests` - Admin: View all beta requests
+- `PATCH /api/beta/requests/{id}` - Admin: Update request status
+- `POST /api/feedback` - Submit user feedback
+- `GET /api/ai-dashboard/stats` - AI performance metrics
+- `/api/export/vouchers` - Export vouchers as CSV/PDF
+
+---
+
+## Mocked Integrations (Beta Phase)
+- **Stripe**: Payment processing is mocked (admin activates subscriptions)
+- **e-conomic**: OAuth and API calls are mocked (voucher creation simulated)
+- **Email**: Notifications are logged to database instead of sent
+
+---
+
+## Backlog
+
+### P0 - Production Ready
+All P0 items completed ✅
+
+### P1 - Post-Beta
+1. Real e-conomic Integration (OAuth2 flow)
+2. Stripe Live Activation (webhook handling)
+3. Live Email Notifications (SendGrid)
 
 ### P2 - Future Enhancements
-1. Machine learning-based account prediction
-2. Company-specific keyword learning
-3. Industry-specific rule sets
-4. Multi-language invoice support
+1. Expand Integrations (Dinero, Billy adapters)
+2. Smart Reconciliation Engine
+3. Enhanced VAT Risk module
+4. Machine learning-based account prediction
+5. Multi-language invoice support
 
-## Test Suite Location
-- `/app/backend/tests/invoice_test_suite_data.py` - 25 realistic invoices
-- `/app/backend/tests/invoice_test_suite_edge_cases.py` - 25 edge cases
-- `/app/backend/tests/run_invoice_evaluation.py` - Evaluation script
-- `/app/backend/test_reports/invoice_evaluation_report.json` - Latest results
+---
 
-## How to Run Evaluation
+## Test Commands
+
+### Run AI Evaluation
 ```bash
 cd /app/backend
 python3 tests/run_invoice_evaluation.py
 ```
+
+### Test Beta API
+```bash
+curl -X POST "https://accounto.preview.emergentagent.com/api/beta/request-access" \
+  -H "Content-Type: application/json" \
+  -d '{"firm_name": "Test Firm", "email": "test@firm.dk"}'
+```
+
+---
+
+## Credentials for Testing
+- Register new users at `/register`
+- Admin user can be created with `role: "admin"`
+- Landing page accessible at `/`
+- Main app accessible at `/app/dashboard` (after login)
