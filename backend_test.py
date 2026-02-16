@@ -5,7 +5,7 @@ import io
 from datetime import datetime
 
 class AIAccountingAPITester:
-    def __init__(self, base_url="https://fintech-ocr-1.preview.emergentagent.com"):
+    def __init__(self, base_url="https://accounto.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_base = f"{base_url}/api"
         self.token = None
