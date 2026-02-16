@@ -5,6 +5,9 @@ import { TenantProvider } from "./contexts/TenantContext";
 import { MainLayout } from "./components/layout/MainLayout";
 import { Toaster } from "./components/ui/sonner";
 
+// Landing Page
+import LandingPage from "./pages/landing/LandingPage";
+
 // Auth Pages
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
@@ -30,12 +33,13 @@ function App() {
                 <BrowserRouter>
                     <Routes>
                         {/* Public Routes */}
+                        <Route path="/" element={<LandingPage />} />
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/register" element={<RegisterPage />} />
 
                         {/* Protected Routes */}
-                        <Route path="/" element={<MainLayout />}>
-                            <Route index element={<Navigate to="/dashboard" replace />} />
+                        <Route path="/app" element={<MainLayout />}>
+                            <Route index element={<Navigate to="/app/dashboard" replace />} />
                             <Route path="dashboard" element={<DashboardPage />} />
                             <Route path="companies" element={<CompaniesPage />} />
                             <Route path="documents" element={<DocumentsPage />} />
@@ -50,8 +54,22 @@ function App() {
                             <Route path="settings" element={<SettingsPage />} />
                         </Route>
 
+                        {/* Legacy routes - redirect to /app */}
+                        <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
+                        <Route path="/companies" element={<Navigate to="/app/companies" replace />} />
+                        <Route path="/documents" element={<Navigate to="/app/documents" replace />} />
+                        <Route path="/vouchers" element={<Navigate to="/app/vouchers" replace />} />
+                        <Route path="/reconciliation" element={<Navigate to="/app/reconciliation" replace />} />
+                        <Route path="/vat" element={<Navigate to="/app/vat" replace />} />
+                        <Route path="/activity" element={<Navigate to="/app/activity" replace />} />
+                        <Route path="/billing" element={<Navigate to="/app/billing" replace />} />
+                        <Route path="/accountant" element={<Navigate to="/app/accountant" replace />} />
+                        <Route path="/admin" element={<Navigate to="/app/admin" replace />} />
+                        <Route path="/ai-dashboard" element={<Navigate to="/app/ai-dashboard" replace />} />
+                        <Route path="/settings" element={<Navigate to="/app/settings" replace />} />
+
                         {/* Catch all */}
-                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                 </BrowserRouter>
                 <Toaster position="top-right" richColors />
