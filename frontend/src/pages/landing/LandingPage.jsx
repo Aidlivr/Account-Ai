@@ -19,11 +19,29 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { toast } from 'sonner';
 
+const API_URL = process.env.REACT_APP_BACKEND_URL;
+
 // Beta request form submission
 const submitBetaRequest = async (formData) => {
-    // In production, this would submit to backend
-    console.log('Beta request:', formData);
-    return { success: true };
+    const response = await fetch(`${API_URL}/api/beta/request-access`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            firm_name: formData.firmName,
+            contact_person: formData.contactPerson,
+            email: formData.email,
+            active_clients: formData.activeClients
+        })
+    });
+    
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Submission failed');
+    }
+    
+    return response.json();
 };
 
 export default function LandingPage() {
