@@ -2553,6 +2553,87 @@ async def get_all_feedback(user: dict = Depends(require_role([UserRole.ADMIN])))
     feedback_list = await db.feedback.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
     return {"feedback": feedback_list, "total": len(feedback_list)}
 
+# Beta Access Request Router (Public endpoint - no auth required)
+beta_router = APIRouter(prefix="/beta", tags=["Beta Access"])
+
+class BetaAccessRequest(BaseModel):
+    firm_name: str = Field(..., min_length=2)
+    contact_person: Optional[str] = None
+    email: EmailStr
+    active_clients: Optional[str] = None
+
+@beta_router.post("/request-access")
+async def request_beta_access(request: BetaAccessRequest):
+    """Submit a request for early access to the beta program (public endpoint)"""
+    # Check if email already submitted
+    existing = await db.beta_requests.find_one({"email": request.email.lower()})
+    if existing:
+        return {
+            "success": True, 
+            "message": "You have already requested access. We will contact you shortly.",
+            "already_registered": True
+        }
+    
+    beta_request_doc = {
+        "id": str(uuid.uuid4()),
+        "firm_name": request.firm_name,
+        "contact_person": request.contact_person,
+        "email": request.email.lower(),
+        "active_clients": request.active_clients,
+        "status": "pending",
+        "source": "landing_page",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.beta_requests.insert_one(beta_request_doc)
+    
+    # Log for monitoring
+    logger.info(f"[BETA REQUEST] New request from {request.email} - Firm: {request.firm_name}")
+    
+    # Send notification email (mocked)
+    await MockEmailService.send_email(
+        to="beta@accountrix.dk",
+        subject=f"New Beta Access Request from {request.firm_name}",
+        body=f"""New beta access request received:
+
+Firm Name: {request.firm_name}
+Contact: {request.contact_person or 'Not provided'}
+Email: {request.email}
+Active Clients: {request.active_clients or 'Not specified'}
+
+Please review and respond to this request.
+"""
+    )
+    
+    return {
+        "success": True,
+        "message": "Thank you for your interest. We will contact you shortly.",
+        "id": beta_request_doc["id"]
+    }
+
+@beta_router.get("/requests")
+async def get_beta_requests(user: dict = Depends(require_role([UserRole.ADMIN]))):
+    """Admin endpoint to view all beta access requests"""
+    requests = await db.beta_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return {"requests": requests, "total": len(requests)}
+
+@beta_router.patch("/requests/{request_id}")
+async def update_beta_request(request_id: str, status: str, user: dict = Depends(require_role([UserRole.ADMIN]))):
+    """Admin endpoint to update beta request status"""
+    valid_statuses = ["pending", "approved", "contacted", "onboarded", "rejected"]
+    if status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Status must be one of: {valid_statuses}")
+    
+    result = await db.beta_requests.update_one(
+        {"id": request_id},
+        {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    return {"success": True, "message": f"Request status updated to {status}"}
+
 # Export Router
 export_router = APIRouter(prefix="/export", tags=["Export"])
 
