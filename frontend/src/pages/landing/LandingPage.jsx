@@ -61,11 +61,15 @@ export default function LandingPage() {
         }
         setSubmitting(true);
         try {
-            await submitBetaRequest(betaForm);
-            toast.success('Thank you for your interest. We will contact you shortly.');
+            const result = await submitBetaRequest(betaForm);
+            if (result.already_registered) {
+                toast.info('You have already requested access. We will contact you shortly.');
+            } else {
+                toast.success('Thank you for your interest. We will contact you shortly.');
+            }
             setBetaForm({ firmName: '', contactPerson: '', email: '', activeClients: '' });
         } catch (err) {
-            toast.error('Submission failed. Please try again.');
+            toast.error(err.message || 'Submission failed. Please try again.');
         } finally {
             setSubmitting(false);
         }
