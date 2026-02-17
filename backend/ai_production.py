@@ -75,6 +75,14 @@ class ProductionAIService:
         self.llm_key = llm_key
         self._account_cache: Dict[str, List[Dict]] = {}
         self._vendor_cache: Dict[str, Dict] = {}
+        
+        # Initialize live OpenAI service if API key is available
+        self.live_openai = LiveOpenAIService(db) if USE_LIVE_OPENAI else None
+        
+        if USE_LIVE_OPENAI:
+            logger.info(f"Production AI: Using LIVE OpenAI API with model {AI_CONFIG['model']}")
+        else:
+            logger.info("Production AI: Using Emergent LLM integration")
     
     # ==================== MAIN EXTRACTION METHOD ====================
     
