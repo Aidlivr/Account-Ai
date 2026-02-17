@@ -532,6 +532,13 @@ async def main():
         print("\n" + "="*60)
         print("INVOICE EXTRACTION EVALUATION REPORT")
         print("="*60)
+        
+        # Show which API was used
+        if openai_key:
+            print(f"\nAPI: Live OpenAI ({os.environ.get('OPENAI_MODEL', 'gpt-4o')})")
+        else:
+            print("\nAPI: Emergent LLM Integration")
+        
         print(f"\nTotal Invoices: {report['summary']['total_invoices']}")
         print(f"Successfully Processed: {report['summary']['processed_successfully']}")
         print(f"Failed: {report['summary']['failed_processing']}")
@@ -547,6 +554,20 @@ async def main():
             print(f"\nTop Vendors Causing Corrections:")
             for v in report['top_10_vendors_with_corrections'][:5]:
                 print(f"  - {v['vendor']}: {v['correction_count']} corrections")
+        
+        # Token usage summary (if available)
+        if "token_usage" in report:
+            print("\n" + "-"*40)
+            print("TOKEN USAGE SUMMARY")
+            print("-"*40)
+            tu = report["token_usage"]
+            print(f"Total Requests: {tu.get('total_requests', 0)}")
+            print(f"Success Rate: {tu.get('success_rate_percent', 0)}%")
+            print(f"Total Tokens: {tu.get('total_tokens', 0):,}")
+            print(f"  - Prompt Tokens: {tu.get('total_prompt_tokens', 0):,}")
+            print(f"  - Completion Tokens: {tu.get('total_completion_tokens', 0):,}")
+            print(f"Estimated Cost: ${tu.get('total_cost_usd', 0):.4f} USD")
+            print(f"Avg Tokens/Invoice: {tu.get('avg_tokens_per_invoice', 0):.0f}")
         
         print("\n" + "="*60)
         
