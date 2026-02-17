@@ -90,7 +90,8 @@ class ProductionAIService:
         self,
         ocr_text: str,
         tenant_id: str,
-        company_context: Optional[Dict] = None
+        company_context: Optional[Dict] = None,
+        document_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Production invoice extraction with validation and vendor learning.
@@ -99,6 +100,7 @@ class ProductionAIService:
             ocr_text: Raw OCR text from invoice
             tenant_id: Company/tenant ID
             company_context: Optional company-specific context (industry, currency)
+            document_id: Optional document ID for token tracking
             
         Returns:
             Structured extraction result with validation status
@@ -107,8 +109,8 @@ class ProductionAIService:
             # 1. Build dynamic prompt
             prompt = await self._build_extraction_prompt(ocr_text, tenant_id, company_context)
             
-            # 2. Call AI with retry
-            ai_response = await self._call_ai_with_retry(prompt)
+            # 2. Call AI with retry (pass document_id and tenant_id for token tracking)
+            ai_response = await self._call_ai_with_retry(prompt, invoice_id=document_id, tenant_id=tenant_id)
             
             if not ai_response.get("success"):
                 return self._create_failure_response(ai_response.get("error", "AI call failed"))
@@ -141,6 +143,9 @@ class ProductionAIService:
                 processed.get("confidence_score", 0.5),
                 vendor_history
             )
+            
+            # 8. Include token usage info if available
+            token_usage = ai_response.get("token_usage")
             
             return {
                 "success": True,
