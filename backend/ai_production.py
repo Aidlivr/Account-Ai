@@ -147,7 +147,7 @@ class ProductionAIService:
             # 8. Include token usage info if available
             token_usage = ai_response.get("token_usage")
             
-            return {
+            result = {
                 "success": True,
                 "data": processed,
                 "vendor_override_applied": processed.get("_vendor_override", False),
@@ -155,6 +155,13 @@ class ProductionAIService:
                 "validation_passed": True,
                 "extraction_timestamp": datetime.now(timezone.utc).isoformat()
             }
+            
+            # Add token usage if available (from live OpenAI)
+            if token_usage:
+                result["token_usage"] = token_usage
+                result["model"] = ai_response.get("model", AI_CONFIG["model"])
+            
+            return result
             
         except Exception as e:
             logger.error(f"Invoice extraction error: {e}")
