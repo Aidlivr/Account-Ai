@@ -2933,6 +2933,35 @@ async def get_active_companies(
         "companies": companies
     }
 
+@ai_dashboard_router.get("/token-usage")
+async def get_token_usage_stats(
+    days: int = 30,
+    tenant_id: Optional[str] = None,
+    user: dict = Depends(require_role([UserRole.ADMIN]))
+):
+    """Get AI token usage statistics for cost monitoring"""
+    from openai_live import LiveOpenAIService
+    
+    live_service = LiveOpenAIService(db)
+    stats = await live_service.get_usage_stats(tenant_id=tenant_id, days=days)
+    
+    return {
+        "usage_stats": stats,
+        "live_openai_enabled": bool(os.environ.get("OPENAI_API_KEY")),
+        "configured_model": os.environ.get("OPENAI_MODEL", "gpt-4o")
+    }
+
+@ai_dashboard_router.get("/token-usage/daily/{date_str}")
+async def get_daily_token_usage(
+    date_str: str,
+    user: dict = Depends(require_role([UserRole.ADMIN]))
+):
+    """Get daily token usage breakdown"""
+    from openai_live import aggregate_daily_usage
+    
+    summary = await aggregate_daily_usage(db, date_str)
+    return summary
+
 # ==================== ACCOUNTING DATA ROUTES ====================
 
 @accounting_data_router.get("/chart-of-accounts")
