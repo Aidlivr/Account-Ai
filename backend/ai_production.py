@@ -1,9 +1,11 @@
 # Production AI Service for Invoice Processing
 # Implements structured prompts, validation, vendor learning, and correction tracking
+# Supports both Emergent LLM key and direct OpenAI API
 
 import json
 import re
 import uuid
+import os
 import logging
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime, timezone
@@ -27,15 +29,21 @@ from danish_accounting import (
 # Import deterministic rule engine
 from rule_engine import apply_deterministic_rules, CompanyConfig
 
+# Import live OpenAI service (for direct API usage)
+from openai_live import LiveOpenAIService
+
 logger = logging.getLogger(__name__)
 
 # ==================== AI CONFIGURATION ====================
 
+# Check if we should use direct OpenAI API
+USE_LIVE_OPENAI = bool(os.environ.get("OPENAI_API_KEY"))
+
 AI_CONFIG = {
-    "temperature": 0.15,  # Low temperature for consistent output
+    "temperature": 0.1,  # Low temperature for consistent output
     "top_p": 1,
-    "max_retries": 1,
-    "model": "gpt-5.2",
+    "max_retries": 3,
+    "model": os.environ.get("OPENAI_MODEL", "gpt-4o"),
     "provider": "openai",
 }
 
