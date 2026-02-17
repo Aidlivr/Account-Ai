@@ -278,13 +278,36 @@ Return JSON in this exact format:
     
     # ==================== AI CALL WITH RETRY ====================
     
-    async def _call_ai_with_retry(self, prompt: str) -> Dict[str, Any]:
+    async def _call_ai_with_retry(self, prompt: str, invoice_id: Optional[str] = None, tenant_id: Optional[str] = None) -> Dict[str, Any]:
         """Call AI with retry logic and strict JSON parsing"""
+        
+        # Use live OpenAI API if available
+        if self.live_openai and USE_LIVE_OPENAI:
+            return await self._call_live_openai(prompt, invoice_id, tenant_id)
+        
+        # Fallback to Emergent LLM integration
+        return await self._call_emergent_llm(prompt)
+    
+    async def _call_live_openai(self, prompt: str, invoice_id: Optional[str], tenant_id: Optional[str]) -> Dict[str, Any]:
+        """Call live OpenAI API with structured JSON output"""
+        result = await self.live_openai.extract_invoice_data(
+            prompt=prompt,
+            invoice_id=invoice_id,
+            tenant_id=tenant_id
+        )
+        
+        if result["success"]:
+            logger.info(f"Live OpenAI extraction successful. Tokens: {result.get('token_usage', {}).get('total', 'N/A')}")
+        
+        return result
+    
+    async def _call_emergent_llm(self, prompt: str) -> Dict[str, Any]:
+        """Call Emergent LLM integration (fallback)"""
         from emergentintegrations.llm.chat import LlmChat, UserMessage
         
         last_error = None
         
-        for attempt in range(AI_CONFIG["max_retries"] + 1):
+        for attempt in range(AI_CONFIG["max_retries"]):
             try:
                 chat = LlmChat(
                     api_key=self.llm_key,
