@@ -485,10 +485,18 @@ async def main():
     # Get configuration
     mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
     db_name = os.environ.get('DB_NAME', 'ai_accounting_copilot')
+    
+    # Check for API keys - prefer OPENAI_API_KEY for live testing
+    openai_key = os.environ.get('OPENAI_API_KEY', '')
     llm_key = os.environ.get('EMERGENT_LLM_KEY', '')
     
-    if not llm_key:
-        logger.error("EMERGENT_LLM_KEY not set")
+    if openai_key:
+        logger.info("Using LIVE OpenAI API for evaluation")
+        logger.info(f"Model: {os.environ.get('OPENAI_MODEL', 'gpt-4o')}")
+    elif llm_key:
+        logger.info("Using Emergent LLM integration for evaluation")
+    else:
+        logger.error("No API key found (OPENAI_API_KEY or EMERGENT_LLM_KEY)")
         return
     
     # Initialize runner
@@ -503,6 +511,13 @@ async def main():
         
         # Run evaluation
         report = await runner.run_evaluation(all_invoices)
+        
+        # Add token usage summary if using live OpenAI
+        if openai_key:
+            from openai_live import LiveOpenAIService
+            live_service = LiveOpenAIService(runner.db)
+            token_stats = await live_service.get_usage_stats(days=1)
+            report["token_usage"] = token_stats
         
         # Save report
         report_path = Path(__file__).parent.parent / "test_reports" / "invoice_evaluation_report.json"
