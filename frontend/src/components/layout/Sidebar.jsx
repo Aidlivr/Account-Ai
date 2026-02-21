@@ -12,7 +12,10 @@ import {
     LogOut,
     ChevronDown,
     UsersRound,
-    Brain
+    Brain,
+    Shield,
+    Bell,
+    Clock
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
@@ -26,25 +29,33 @@ import {
 } from '../ui/dropdown-menu';
 import { cn } from '../../lib/utils';
 
+// Portfolio Risk Platform - Primary Navigation
+const portfolioItems = [
+    { to: '/app/portfolio', icon: Shield, label: 'Risk Dashboard' },
+    { to: '/app/portfolio/exceptions', icon: Bell, label: 'Exception Inbox' },
+    { to: '/app/portfolio/pre-vat', icon: Clock, label: 'Pre-VAT Review' },
+];
+
+// Legacy/Secondary Navigation
 const navItems = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/companies', icon: Building2, label: 'Companies' },
-    { to: '/documents', icon: FileText, label: 'Documents' },
-    { to: '/vouchers', icon: FileText, label: 'Vouchers' },
-    { to: '/reconciliation', icon: ArrowLeftRight, label: 'Reconciliation' },
-    { to: '/vat', icon: Calculator, label: 'VAT Analysis' },
-    { to: '/activity', icon: Users, label: 'Activity Log' },
-    { to: '/billing', icon: CreditCard, label: 'Billing' },
+    { to: '/app/dashboard', icon: LayoutDashboard, label: 'Overview' },
+    { to: '/app/companies', icon: Building2, label: 'Companies' },
+    { to: '/app/documents', icon: FileText, label: 'Documents' },
+    { to: '/app/vouchers', icon: FileText, label: 'Vouchers' },
+    { to: '/app/reconciliation', icon: ArrowLeftRight, label: 'Reconciliation' },
+    { to: '/app/vat', icon: Calculator, label: 'VAT Analysis' },
+    { to: '/app/activity', icon: Users, label: 'Activity Log' },
+    { to: '/app/billing', icon: CreditCard, label: 'Billing' },
 ];
 
 const accountantItems = [
-    { to: '/accountant', icon: UsersRound, label: 'Client Overview' },
-    { to: '/ai-dashboard', icon: Brain, label: 'AI Performance' },
+    { to: '/app/accountant', icon: UsersRound, label: 'Client Overview' },
+    { to: '/app/ai-dashboard', icon: Brain, label: 'AI Performance' },
 ];
 
 const adminItems = [
-    { to: '/admin', icon: Users, label: 'Admin Panel' },
-    { to: '/ai-dashboard', icon: Brain, label: 'AI Dashboard' },
+    { to: '/app/admin', icon: Users, label: 'Admin Panel' },
+    { to: '/app/ai-dashboard', icon: Brain, label: 'AI Dashboard' },
 ];
 
 export const Sidebar = () => {
