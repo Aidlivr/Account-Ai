@@ -1,6 +1,6 @@
 # Accountrix - Product Requirements Document
 
-## Version: 3.0.0 (Strategic Pivot)
+## Version: 3.1.0 (Professional Repositioning)
 ## Last Updated: Feb 17, 2026
 
 ---
