@@ -3076,6 +3076,10 @@ api_router.include_router(email_router)
 api_router.include_router(ai_dashboard_router)
 api_router.include_router(accounting_data_router)
 
+# Setup and include portfolio routes
+setup_portfolio_routes(portfolio_router, db, get_current_user)
+api_router.include_router(portfolio_router)
+
 app.include_router(api_router)
 
 app.add_middleware(
