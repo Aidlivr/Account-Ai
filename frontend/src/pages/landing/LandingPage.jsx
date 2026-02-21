@@ -1,18 +1,24 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-    FileText, 
-    CheckCircle, 
     Shield, 
-    BarChart3, 
+    AlertTriangle,
+    TrendingUp,
     Users, 
     Clock,
     ArrowRight,
     Building2,
-    Settings,
+    Eye,
+    Layers,
+    Target,
+    CheckCircle,
+    BarChart3,
+    Bell,
+    Filter,
+    Zap,
     Lock,
-    Activity,
-    ChevronRight
+    FileSearch,
+    UserCheck
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -76,32 +82,32 @@ export default function LandingPage() {
     };
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-slate-950 text-white">
             {/* Navigation */}
-            <nav className="border-b border-slate-200 bg-white sticky top-0 z-50">
+            <nav className="border-b border-slate-800 bg-slate-950/90 backdrop-blur-sm sticky top-0 z-50">
                 <div className="max-w-6xl mx-auto px-6 py-4">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-[#1e3a5f] rounded flex items-center justify-center">
-                                <FileText className="w-4 h-4 text-white" />
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                                <Shield className="w-5 h-5 text-white" />
                             </div>
-                            <span className="font-semibold text-[#1e3a5f] text-lg">Accountrix</span>
+                            <span className="font-semibold text-white text-lg tracking-tight">Accountrix</span>
                         </div>
-                        <div className="hidden md:flex items-center gap-8 text-sm text-slate-600">
-                            <a href="#features" className="hover:text-[#1e3a5f] transition-colors">Features</a>
-                            <a href="#workflow" className="hover:text-[#1e3a5f] transition-colors">How It Works</a>
-                            <a href="#pricing" className="hover:text-[#1e3a5f] transition-colors">Pricing</a>
-                            <a href="#security" className="hover:text-[#1e3a5f] transition-colors">Security</a>
+                        <div className="hidden md:flex items-center gap-8 text-sm text-slate-400">
+                            <a href="#problem" className="hover:text-white transition-colors">The Problem</a>
+                            <a href="#platform" className="hover:text-white transition-colors">Platform</a>
+                            <a href="#modules" className="hover:text-white transition-colors">Modules</a>
+                            <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
                         </div>
                         <div className="flex items-center gap-3">
                             <Link to="/login">
-                                <Button variant="ghost" className="text-slate-600 hover:text-[#1e3a5f]">
+                                <Button variant="ghost" className="text-slate-400 hover:text-white hover:bg-slate-800">
                                     Sign In
                                 </Button>
                             </Link>
-                            <a href="#beta">
-                                <Button className="bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white">
-                                    Request Access
+                            <a href="#demo">
+                                <Button className="bg-emerald-600 hover:bg-emerald-500 text-white">
+                                    Request Demo
                                 </Button>
                             </a>
                         </div>
@@ -110,337 +116,396 @@ export default function LandingPage() {
             </nav>
 
             {/* Hero Section */}
-            <section className="bg-gradient-to-b from-slate-50 to-white py-20 lg:py-28">
-                <div className="max-w-6xl mx-auto px-6">
-                    <div className="grid lg:grid-cols-2 gap-12 items-center">
-                        <div>
-                            <h1 className="text-4xl lg:text-5xl font-semibold text-[#1e3a5f] leading-tight mb-6">
-                                AI Accounting Copilot for Modern Accounting Firms
-                            </h1>
-                            <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-                                Reduce manual bookkeeping workload with structured AI-powered invoice processing — fully reviewable and compliant with e-conomic.
-                            </p>
-                            <ul className="space-y-3 mb-8">
-                                {[
-                                    'AI invoice extraction with rule-based validation',
-                                    'Accountant-controlled approval workflow',
-                                    'Draft voucher creation in e-conomic',
-                                    'Built for Danish VAT compliance'
-                                ].map((item, i) => (
-                                    <li key={i} className="flex items-start gap-3 text-slate-700">
-                                        <CheckCircle className="w-5 h-5 text-[#1e3a5f] mt-0.5 flex-shrink-0" />
-                                        <span>{item}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                            <div className="flex flex-col sm:flex-row gap-4">
-                                <a href="#beta">
-                                    <Button size="lg" className="bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white px-8">
-                                        Request Early Access
-                                        <ArrowRight className="w-4 h-4 ml-2" />
-                                    </Button>
-                                </a>
-                                <a href="#workflow">
-                                    <Button size="lg" variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50 px-8">
-                                        Book a Demo
-                                    </Button>
-                                </a>
+            <section className="relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/20 to-transparent"></div>
+                <div className="max-w-6xl mx-auto px-6 py-24 lg:py-32 relative">
+                    <div className="max-w-3xl">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-sm mb-6">
+                            <Eye className="w-4 h-4" />
+                            Portfolio Risk Intelligence
+                        </div>
+                        <h1 className="text-4xl lg:text-5xl xl:text-6xl font-semibold text-white leading-tight mb-6">
+                            Air Traffic Control for 
+                            <span className="text-emerald-400"> Accounting Firms</span>
+                        </h1>
+                        <p className="text-xl text-slate-400 mb-8 leading-relaxed max-w-2xl">
+                            Stop drowning in transaction noise. See which of your 100+ clients need attention before VAT deadlines. Catch anomalies before they become problems.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-4 mb-12">
+                            <a href="#demo">
+                                <Button size="lg" className="bg-emerald-600 hover:bg-emerald-500 text-white px-8">
+                                    Request Early Access
+                                    <ArrowRight className="w-4 h-4 ml-2" />
+                                </Button>
+                            </a>
+                            <a href="#platform">
+                                <Button size="lg" variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white px-8">
+                                    See How It Works
+                                </Button>
+                            </a>
+                        </div>
+                        
+                        {/* Key Stats */}
+                        <div className="grid grid-cols-3 gap-8 pt-8 border-t border-slate-800">
+                            <div>
+                                <div className="text-3xl font-semibold text-white">100+</div>
+                                <div className="text-sm text-slate-500">Clients per firm</div>
+                            </div>
+                            <div>
+                                <div className="text-3xl font-semibold text-white">80%</div>
+                                <div className="text-sm text-slate-500">Review time reduction</div>
+                            </div>
+                            <div>
+                                <div className="text-3xl font-semibold text-white">Pre-VAT</div>
+                                <div className="text-sm text-slate-500">Risk detection</div>
                             </div>
                         </div>
-                        <div className="bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden">
-                            <div className="bg-[#1e3a5f] px-4 py-3 flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
-                                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
-                                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
-                                <span className="text-white/80 text-sm ml-2">Invoice Review Queue</span>
-                            </div>
-                            <div className="p-6">
-                                {/* Mock Dashboard */}
-                                <div className="space-y-4">
-                                    {[
-                                        { vendor: 'Lyreco Denmark A/S', amount: '2.176,25', confidence: 98, account: '6300' },
-                                        { vendor: 'TDC Erhverv', amount: '2.164,38', confidence: 95, account: '6400' },
-                                        { vendor: 'Dustin A/S', amount: '38.671,25', confidence: 92, account: '6310' },
-                                    ].map((item, i) => (
-                                        <div key={i} className="border border-slate-200 rounded-lg p-4 hover:border-[#1e3a5f]/30 transition-colors">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div>
-                                                    <p className="font-medium text-slate-800">{item.vendor}</p>
-                                                    <p className="text-sm text-slate-500">Invoice pending review</p>
-                                                </div>
-                                                <span className="text-lg font-semibold text-slate-800">{item.amount} DKK</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-4 text-sm">
-                                                    <span className="flex items-center gap-1.5">
-                                                        <div className={`w-2 h-2 rounded-full ${item.confidence >= 95 ? 'bg-green-500' : 'bg-amber-500'}`}></div>
-                                                        <span className="text-slate-600">{item.confidence}% confidence</span>
-                                                    </span>
-                                                    <span className="text-slate-400">|</span>
-                                                    <span className="text-slate-600">Account: {item.account}</span>
-                                                </div>
-                                                <Button size="sm" className="bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white text-xs h-8">
-                                                    Approve
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
+                    </div>
+                </div>
+                
+                {/* Hero Visual - Control Dashboard Preview */}
+                <div className="absolute right-0 top-32 w-1/2 hidden xl:block">
+                    <div className="bg-slate-900 rounded-l-2xl border border-slate-800 p-6 shadow-2xl">
+                        <div className="flex items-center justify-between mb-4">
+                            <span className="text-sm font-medium text-slate-300">Portfolio Risk Overview</span>
+                            <span className="text-xs text-slate-500">Live</span>
+                        </div>
+                        <div className="space-y-3">
+                            {[
+                                { client: 'Nordisk Handel ApS', risk: 'high', flags: 3, vat: '12 days' },
+                                { client: 'TechStart Denmark', risk: 'medium', flags: 1, vat: '12 days' },
+                                { client: 'Café Strøget IVS', risk: 'low', flags: 0, vat: '12 days' },
+                                { client: 'Maritime Solutions', risk: 'high', flags: 5, vat: '12 days' },
+                                { client: 'Green Energy DK', risk: 'low', flags: 0, vat: '12 days' },
+                            ].map((item, i) => (
+                                <div key={i} className="flex items-center justify-between bg-slate-800/50 rounded-lg px-4 py-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-2 h-2 rounded-full ${
+                                            item.risk === 'high' ? 'bg-red-500' : 
+                                            item.risk === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
+                                        }`}></div>
+                                        <span className="text-sm text-slate-300">{item.client}</span>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        {item.flags > 0 && (
+                                            <span className="text-xs bg-slate-700 px-2 py-1 rounded text-slate-400">
+                                                {item.flags} flags
+                                            </span>
+                                        )}
+                                        <span className="text-xs text-slate-500">VAT: {item.vat}</span>
+                                    </div>
                                 </div>
-                            </div>
+                            ))}
                         </div>
                     </div>
                 </div>
             </section>
 
             {/* The Problem Section */}
-            <section className="py-20 bg-white">
+            <section id="problem" className="py-24 bg-slate-900/50">
                 <div className="max-w-6xl mx-auto px-6">
-                    <div className="max-w-3xl mx-auto text-center mb-12">
-                        <h2 className="text-3xl font-semibold text-[#1e3a5f] mb-4">
-                            Manual Invoice Processing Slows Down Accounting Firms
+                    <div className="max-w-3xl mx-auto text-center mb-16">
+                        <h2 className="text-3xl font-semibold text-white mb-4">
+                            Managing 100+ Clients Creates Cognitive Overload
                         </h2>
-                        <p className="text-slate-600">
-                            Traditional invoice handling creates bottlenecks that affect your entire practice.
+                        <p className="text-slate-400">
+                            Your accounting system shows you everything. But when you're responsible for hundreds of clients, you need to see what matters.
                         </p>
                     </div>
+                    
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {[
                             {
-                                title: 'Time-Intensive Data Entry',
-                                description: 'Accountants spend hours manually posting invoices, extracting vendor details, amounts, and VAT information from each document.'
+                                icon: AlertTriangle,
+                                title: 'Which clients need attention?',
+                                description: 'With 100+ clients, you cannot review every transaction. You need to know which clients have anomalies before VAT submission.'
                             },
                             {
-                                title: 'Repetitive Classification',
-                                description: 'The same vendors require the same account classifications month after month, yet each invoice is processed individually.'
+                                icon: TrendingUp,
+                                title: 'Where are the unusual patterns?',
+                                description: 'A sudden spike in expenses or an unusual VAT percentage could indicate errors—or fraud. Manual detection is impossible at scale.'
                             },
                             {
-                                title: 'VAT Rule Verification',
-                                description: 'Danish VAT rules require careful verification. Reverse charge, EU acquisitions, and exempt services each need specific handling.'
-                            },
-                            {
-                                title: 'Peak Period Errors',
-                                description: 'During busy periods like quarter-end, manual processing increases the risk of posting errors and classification mistakes.'
-                            },
-                            {
-                                title: 'Client Expectations',
-                                description: 'Clients expect faster financial reporting. Manual processes create delays that affect your service delivery.'
-                            },
-                            {
-                                title: 'Scaling Challenges',
-                                description: 'Growing your client base means proportionally more manual work, limiting the efficiency gains from economies of scale.'
-                            }
-                        ].map((item, i) => (
-                            <div key={i} className="bg-slate-50 rounded-lg p-6 border border-slate-100">
-                                <h3 className="font-medium text-[#1e3a5f] mb-2">{item.title}</h3>
-                                <p className="text-sm text-slate-600 leading-relaxed">{item.description}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* The Solution Section */}
-            <section id="workflow" className="py-20 bg-slate-50">
-                <div className="max-w-6xl mx-auto px-6">
-                    <div className="max-w-3xl mx-auto text-center mb-16">
-                        <h2 className="text-3xl font-semibold text-[#1e3a5f] mb-4">
-                            A Structured AI Assistant — Not Uncontrolled Automation
-                        </h2>
-                        <p className="text-slate-600">
-                            Our system provides intelligent suggestions while keeping accountants in full control of every posting decision.
-                        </p>
-                    </div>
-                    
-                    <div className="grid lg:grid-cols-6 gap-4">
-                        {[
-                            { step: '1', title: 'Upload', desc: 'PDF or image invoices', icon: FileText },
-                            { step: '2', title: 'Extract', desc: 'AI structures the data', icon: Settings },
-                            { step: '3', title: 'Validate', desc: 'Rule engine checks VAT', icon: Shield },
-                            { step: '4', title: 'Review', desc: 'Accountant verifies', icon: Users },
-                            { step: '5', title: 'Approve', desc: 'Bulk or individual', icon: CheckCircle },
-                            { step: '6', title: 'Post', desc: 'Draft to e-conomic', icon: ArrowRight },
-                        ].map((item, i) => (
-                            <div key={i} className="relative">
-                                <div className="bg-white rounded-lg p-5 border border-slate-200 text-center h-full">
-                                    <div className="w-10 h-10 bg-[#1e3a5f] rounded-full flex items-center justify-center mx-auto mb-3">
-                                        <item.icon className="w-5 h-5 text-white" />
-                                    </div>
-                                    <div className="text-xs font-medium text-[#1e3a5f] mb-1">Step {item.step}</div>
-                                    <h4 className="font-medium text-slate-800 mb-1">{item.title}</h4>
-                                    <p className="text-xs text-slate-500">{item.desc}</p>
-                                </div>
-                                {i < 5 && (
-                                    <div className="hidden lg:block absolute top-1/2 -right-2 transform -translate-y-1/2 z-10">
-                                        <ChevronRight className="w-4 h-4 text-slate-300" />
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="mt-16 grid md:grid-cols-2 gap-8">
-                        <div className="bg-white rounded-lg p-8 border border-slate-200">
-                            <h3 className="font-semibold text-[#1e3a5f] mb-4">Accountant Control</h3>
-                            <ul className="space-y-3">
-                                {[
-                                    'No automatic posting without explicit approval',
-                                    'Full visibility of AI confidence scores',
-                                    'Edit any extracted field before approval',
-                                    'Reject invoices that require manual handling'
-                                ].map((item, i) => (
-                                    <li key={i} className="flex items-start gap-3 text-slate-600">
-                                        <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                                        <span className="text-sm">{item}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                        <div className="bg-white rounded-lg p-8 border border-slate-200">
-                            <h3 className="font-semibold text-[#1e3a5f] mb-4">Continuous Improvement</h3>
-                            <ul className="space-y-3">
-                                {[
-                                    'Vendor learning adapts to your corrections',
-                                    'Account suggestions improve over time',
-                                    'Company-specific rules respected',
-                                    'Accuracy metrics tracked per client'
-                                ].map((item, i) => (
-                                    <li key={i} className="flex items-start gap-3 text-slate-600">
-                                        <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                                        <span className="text-sm">{item}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* Key Features Section */}
-            <section id="features" className="py-20 bg-white">
-                <div className="max-w-6xl mx-auto px-6">
-                    <div className="max-w-3xl mx-auto text-center mb-16">
-                        <h2 className="text-3xl font-semibold text-[#1e3a5f] mb-4">
-                            Built for Professional Accounting Workflows
-                        </h2>
-                        <p className="text-slate-600">
-                            Every feature designed with input from practicing accountants.
-                        </p>
-                    </div>
-                    
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {[
-                            {
-                                icon: FileText,
-                                title: 'Intelligent Invoice Extraction',
-                                description: 'Structured JSON output with vendor name, CVR, amounts, dates, and line items. High accuracy on critical fields.'
-                            },
-                            {
-                                icon: Settings,
-                                title: 'Deterministic Rule Engine',
-                                description: 'Built-in Danish VAT logic including standard 25%, reverse charge, EU acquisitions, and exempt categories.'
+                                icon: Clock,
+                                title: 'VAT deadlines create pressure',
+                                description: 'Before every VAT period, you review frantically. But without prioritization, you waste time on low-risk clients.'
                             },
                             {
                                 icon: Users,
-                                title: 'Vendor Learning System',
-                                description: 'System learns from your corrections. After consistent approvals, account suggestions match your preferences.'
+                                title: 'Junior staff need oversight',
+                                description: 'Your team posts thousands of entries. How do you know which ones need senior review without checking everything?'
                             },
                             {
-                                icon: CheckCircle,
-                                title: 'Bulk Approval Workflow',
-                                description: 'Review and approve multiple invoices efficiently. Filter by confidence level, vendor, or amount.'
+                                icon: FileSearch,
+                                title: 'Compliance risks hide in volume',
+                                description: 'Duplicate invoices, suspicious vendors, and coding errors get buried in transaction volume. Problems surface too late.'
                             },
                             {
-                                icon: Building2,
-                                title: 'e-conomic Integration',
-                                description: 'Draft voucher creation via secure OAuth connection. Review in Accountrix, post to e-conomic.'
-                            },
-                            {
-                                icon: BarChart3,
-                                title: 'Accuracy Dashboard',
-                                description: 'Track AI accuracy per client, identify vendors needing attention, and measure time saved.'
+                                icon: Layers,
+                                title: 'Systems show data, not insight',
+                                description: 'e-conomic shows you what happened. It doesn\'t tell you what\'s wrong, what\'s unusual, or what needs your attention.'
                             }
-                        ].map((feature, i) => (
-                            <div key={i} className="bg-slate-50 rounded-lg p-6 border border-slate-100 hover:border-[#1e3a5f]/20 transition-colors">
-                                <div className="w-12 h-12 bg-[#1e3a5f]/10 rounded-lg flex items-center justify-center mb-4">
-                                    <feature.icon className="w-6 h-6 text-[#1e3a5f]" />
-                                </div>
-                                <h3 className="font-semibold text-[#1e3a5f] mb-2">{feature.title}</h3>
-                                <p className="text-sm text-slate-600 leading-relaxed">{feature.description}</p>
+                        ].map((item, i) => (
+                            <div key={i} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+                                <item.icon className="w-8 h-8 text-red-400 mb-4" />
+                                <h3 className="font-medium text-white mb-2">{item.title}</h3>
+                                <p className="text-sm text-slate-400 leading-relaxed">{item.description}</p>
                             </div>
                         ))}
                     </div>
                 </div>
             </section>
 
-            {/* Validation Results Section */}
-            <section className="py-16 bg-slate-50">
+            {/* Platform Positioning */}
+            <section id="platform" className="py-24">
                 <div className="max-w-6xl mx-auto px-6">
-                    <div className="text-center mb-10">
-                        <h2 className="text-2xl font-semibold text-[#1e3a5f] mb-2">Internal Validation Results</h2>
-                        <p className="text-sm text-slate-500">Based on 50-invoice test suite with Danish vendor patterns</p>
-                    </div>
-                    <div className="grid md:grid-cols-3 gap-6 max-w-3xl mx-auto">
-                        {[
-                            { value: '88%', label: 'Account Classification Accuracy' },
-                            { value: '100%', label: 'Amount Extraction Accuracy' },
-                            { value: '2.17%', label: 'Error Rate' },
-                        ].map((stat, i) => (
-                            <div key={i} className="bg-white rounded-lg p-6 border border-slate-200 text-center">
-                                <div className="text-3xl font-semibold text-[#1e3a5f] mb-1">{stat.value}</div>
-                                <div className="text-sm text-slate-600">{stat.label}</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* Security Section */}
-            <section id="security" className="py-20 bg-white">
-                <div className="max-w-6xl mx-auto px-6">
-                    <div className="grid lg:grid-cols-2 gap-12 items-center">
+                    <div className="grid lg:grid-cols-2 gap-16 items-center">
                         <div>
-                            <h2 className="text-3xl font-semibold text-[#1e3a5f] mb-4">
-                                Built with European Compliance in Mind
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-800 rounded-full text-slate-400 text-sm mb-6">
+                                <Layers className="w-4 h-4" />
+                                Control Layer Architecture
+                            </div>
+                            <h2 className="text-3xl font-semibold text-white mb-6">
+                                We Sit Above Your Accounting System
                             </h2>
-                            <p className="text-slate-600 mb-8">
-                                We understand that accounting firms handle sensitive financial data. Our architecture reflects that responsibility.
+                            <p className="text-slate-400 mb-8 leading-relaxed">
+                                Accountrix doesn't replace e-conomic or compete with built-in features. We connect to your existing systems and provide the intelligence layer that's missing: cross-client risk visibility, exception detection, and pre-VAT control.
                             </p>
-                            <ul className="space-y-4">
+                            <div className="space-y-4">
                                 {[
-                                    { icon: CheckCircle, text: 'Accountant review required before any posting' },
-                                    { icon: Lock, text: 'Secure OAuth token-based authentication' },
-                                    { icon: Shield, text: 'Encrypted data storage and transmission' },
-                                    { icon: Building2, text: 'Multi-tenant architecture with data isolation' },
-                                    { icon: Activity, text: 'Complete activity logs for audit trails' },
-                                    { icon: FileText, text: 'Designed for Danish bookkeeping standards' },
+                                    { label: 'Not an OCR tool', desc: 'We don\'t process invoices. We analyze patterns.' },
+                                    { label: 'Not automation', desc: 'We provide oversight, not replacement.' },
+                                    { label: 'Not per-client', desc: 'Portfolio-wide intelligence across all your clients.' },
                                 ].map((item, i) => (
-                                    <li key={i} className="flex items-start gap-3">
-                                        <div className="w-8 h-8 bg-[#1e3a5f]/10 rounded flex items-center justify-center flex-shrink-0">
-                                            <item.icon className="w-4 h-4 text-[#1e3a5f]" />
+                                    <div key={i} className="flex items-start gap-3">
+                                        <CheckCircle className="w-5 h-5 text-emerald-500 mt-0.5" />
+                                        <div>
+                                            <span className="text-white font-medium">{item.label}</span>
+                                            <span className="text-slate-500"> — {item.desc}</span>
                                         </div>
-                                        <span className="text-slate-700 pt-1">{item.text}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        {/* Architecture Diagram */}
+                        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-8">
+                            <div className="space-y-4">
+                                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-center">
+                                    <Shield className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
+                                    <div className="text-emerald-400 font-medium">Accountrix</div>
+                                    <div className="text-xs text-emerald-400/70">Risk & Control Intelligence</div>
+                                </div>
+                                <div className="flex justify-center">
+                                    <div className="w-px h-8 bg-slate-700"></div>
+                                </div>
+                                <div className="text-center text-xs text-slate-500 py-2">
+                                    API Connection
+                                </div>
+                                <div className="flex justify-center">
+                                    <div className="w-px h-8 bg-slate-700"></div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {['e-conomic', 'Dinero', 'Fortnox'].map((sys, i) => (
+                                        <div key={i} className="bg-slate-800 rounded-lg p-3 text-center">
+                                            <Building2 className="w-5 h-5 text-slate-500 mx-auto mb-1" />
+                                            <div className="text-xs text-slate-400">{sys}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="text-center text-xs text-slate-600 mt-4">
+                                    Your existing accounting systems
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Core Modules */}
+            <section id="modules" className="py-24 bg-slate-900/50">
+                <div className="max-w-6xl mx-auto px-6">
+                    <div className="text-center mb-16">
+                        <h2 className="text-3xl font-semibold text-white mb-4">
+                            Three Modules. Complete Control.
+                        </h2>
+                        <p className="text-slate-400 max-w-2xl mx-auto">
+                            Built for partners and senior reviewers who need to maintain oversight across large client portfolios.
+                        </p>
+                    </div>
+                    
+                    <div className="grid lg:grid-cols-3 gap-8">
+                        {/* Module 1 */}
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-8">
+                            <div className="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center mb-6">
+                                <Target className="w-6 h-6 text-red-400" />
+                            </div>
+                            <h3 className="text-xl font-semibold text-white mb-3">Portfolio Risk Dashboard</h3>
+                            <p className="text-slate-400 text-sm mb-6">
+                                See all your clients ranked by risk. Traffic-light indicators show who needs attention now.
+                            </p>
+                            <ul className="space-y-3">
+                                {[
+                                    'Risk score per client',
+                                    'VAT trend anomalies',
+                                    'Expense spike detection',
+                                    'Duplicate invoice alerts',
+                                    'Missing documentation flags'
+                                ].map((item, i) => (
+                                    <li key={i} className="flex items-center gap-2 text-sm text-slate-300">
+                                        <div className="w-1.5 h-1.5 bg-red-400 rounded-full"></div>
+                                        {item}
                                     </li>
                                 ))}
                             </ul>
                         </div>
-                        <div className="bg-slate-50 rounded-lg p-8 border border-slate-200">
-                            <div className="text-center">
-                                <Lock className="w-16 h-16 text-[#1e3a5f] mx-auto mb-6" />
-                                <h3 className="font-semibold text-[#1e3a5f] mb-4">Data Security Principles</h3>
-                                <div className="space-y-4 text-left">
-                                    <div className="bg-white rounded p-4 border border-slate-100">
-                                        <h4 className="font-medium text-slate-800 text-sm mb-1">No Automatic Posting</h4>
-                                        <p className="text-xs text-slate-500">Every voucher requires explicit accountant approval before reaching e-conomic.</p>
+                        
+                        {/* Module 2 */}
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-8">
+                            <div className="w-12 h-12 bg-amber-500/10 rounded-xl flex items-center justify-center mb-6">
+                                <Bell className="w-6 h-6 text-amber-400" />
+                            </div>
+                            <h3 className="text-xl font-semibold text-white mb-3">Exception Inbox</h3>
+                            <p className="text-slate-400 text-sm mb-6">
+                                Only see what matters. Flagged transactions with explanations and quick actions.
+                            </p>
+                            <ul className="space-y-3">
+                                {[
+                                    'Unusual transaction detection',
+                                    'Pattern deviation alerts',
+                                    'High VAT impact entries',
+                                    'Suspicious vendor patterns',
+                                    'One-click review actions'
+                                ].map((item, i) => (
+                                    <li key={i} className="flex items-center gap-2 text-sm text-slate-300">
+                                        <div className="w-1.5 h-1.5 bg-amber-400 rounded-full"></div>
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        
+                        {/* Module 3 */}
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-8">
+                            <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-6">
+                                <Clock className="w-6 h-6 text-emerald-400" />
+                            </div>
+                            <h3 className="text-xl font-semibold text-white mb-3">Pre-VAT Control Mode</h3>
+                            <p className="text-slate-400 text-sm mb-6">
+                                As VAT deadline approaches, automatic risk summary per client. Never miss a problem.
+                            </p>
+                            <ul className="space-y-3">
+                                {[
+                                    'VAT percentage changes',
+                                    'Quarter vs history comparison',
+                                    'Unusual deduction patterns',
+                                    'Missing VAT-coded entries',
+                                    'Pre-submission checklist'
+                                ].map((item, i) => (
+                                    <li key={i} className="flex items-center gap-2 text-sm text-slate-300">
+                                        <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div>
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* How It Works */}
+            <section className="py-24">
+                <div className="max-w-6xl mx-auto px-6">
+                    <div className="text-center mb-16">
+                        <h2 className="text-3xl font-semibold text-white mb-4">
+                            From Data Overload to Clear Priorities
+                        </h2>
+                    </div>
+                    
+                    <div className="grid md:grid-cols-4 gap-6">
+                        {[
+                            { step: '1', title: 'Connect', desc: 'Link your e-conomic accounts via secure API', icon: Zap },
+                            { step: '2', title: 'Analyze', desc: 'AI builds baseline patterns per client', icon: BarChart3 },
+                            { step: '3', title: 'Detect', desc: 'Anomalies surface automatically', icon: AlertTriangle },
+                            { step: '4', title: 'Control', desc: 'Review, approve, or investigate', icon: UserCheck },
+                        ].map((item, i) => (
+                            <div key={i} className="text-center">
+                                <div className="w-14 h-14 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-700">
+                                    <item.icon className="w-6 h-6 text-emerald-400" />
+                                </div>
+                                <div className="text-emerald-400 text-sm font-medium mb-2">Step {item.step}</div>
+                                <h4 className="text-white font-medium mb-2">{item.title}</h4>
+                                <p className="text-sm text-slate-500">{item.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Audit Trail / Trust Section */}
+            <section className="py-24 bg-slate-900/50">
+                <div className="max-w-6xl mx-auto px-6">
+                    <div className="grid lg:grid-cols-2 gap-16 items-center">
+                        <div className="bg-slate-800/50 rounded-2xl border border-slate-700/50 p-8">
+                            <div className="text-sm text-slate-500 mb-4">Exception Detail</div>
+                            <div className="bg-slate-900 rounded-xl p-6 mb-4">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div>
+                                        <div className="text-white font-medium">Unusual expense detected</div>
+                                        <div className="text-slate-500 text-sm">Nordisk Handel ApS</div>
                                     </div>
-                                    <div className="bg-white rounded p-4 border border-slate-100">
-                                        <h4 className="font-medium text-slate-800 text-sm mb-1">Client Data Isolation</h4>
-                                        <p className="text-xs text-slate-500">Each client company's data is logically separated with strict access controls.</p>
+                                    <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded">High Priority</span>
+                                </div>
+                                <div className="space-y-3 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-500">Transaction</span>
+                                        <span className="text-slate-300">Office Equipment - 47,500 DKK</span>
                                     </div>
-                                    <div className="bg-white rounded p-4 border border-slate-100">
-                                        <h4 className="font-medium text-slate-800 text-sm mb-1">Audit Trail</h4>
-                                        <p className="text-xs text-slate-500">Every action is logged with timestamp, user, and change details.</p>
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-500">Historical average</span>
+                                        <span className="text-slate-300">3,200 DKK/month</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-500">Deviation</span>
+                                        <span className="text-red-400">+1,384%</span>
                                     </div>
                                 </div>
+                            </div>
+                            <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/50">
+                                <div className="text-xs text-slate-500 mb-2">AI Explanation</div>
+                                <p className="text-sm text-slate-400">
+                                    "This expense is 14x higher than the 12-month average for account 6310 (IT Equipment). 
+                                    Similar spikes in past were approved as capital purchases. Recommend verification of asset classification."
+                                </p>
+                            </div>
+                            <div className="flex gap-3 mt-6">
+                                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500">Approve</Button>
+                                <Button size="sm" variant="outline" className="border-slate-600 text-slate-300">Investigate</Button>
+                                <Button size="sm" variant="outline" className="border-slate-600 text-slate-300">Assign</Button>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h2 className="text-3xl font-semibold text-white mb-6">
+                                No Black Box Decisions
+                            </h2>
+                            <p className="text-slate-400 mb-8 leading-relaxed">
+                                Every flag includes a clear explanation. See why something was flagged, what the historical comparison shows, and what action is recommended. You decide—the system advises.
+                            </p>
+                            <div className="space-y-4">
+                                {[
+                                    { icon: Eye, text: 'Full transparency on every flag' },
+                                    { icon: BarChart3, text: 'Historical data comparison included' },
+                                    { icon: FileSearch, text: 'Complete audit trail' },
+                                    { icon: UserCheck, text: 'Human approval required for all actions' },
+                                ].map((item, i) => (
+                                    <div key={i} className="flex items-center gap-3">
+                                        <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center">
+                                            <item.icon className="w-4 h-4 text-emerald-400" />
+                                        </div>
+                                        <span className="text-slate-300">{item.text}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -448,135 +513,138 @@ export default function LandingPage() {
             </section>
 
             {/* Pricing Section */}
-            <section id="pricing" className="py-20 bg-slate-50">
+            <section id="pricing" className="py-24">
                 <div className="max-w-6xl mx-auto px-6">
-                    <div className="max-w-3xl mx-auto text-center mb-12">
-                        <h2 className="text-3xl font-semibold text-[#1e3a5f] mb-4">
-                            Simple Pricing for Accounting Firms
+                    <div className="text-center mb-16">
+                        <h2 className="text-3xl font-semibold text-white mb-4">
+                            Pricing Built for Firms, Not Invoices
                         </h2>
-                        <p className="text-slate-600">
-                            Pay a base subscription plus a per-client fee. Only active companies count.
+                        <p className="text-slate-400">
+                            Simple per-firm pricing. Scales with your client portfolio.
                         </p>
                     </div>
                     
                     <div className="max-w-lg mx-auto">
-                        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                            <div className="bg-[#1e3a5f] px-8 py-6 text-center">
-                                <h3 className="text-white font-semibold text-xl mb-1">Accountrix Professional</h3>
-                                <p className="text-white/70 text-sm">For accounting firms of all sizes</p>
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl overflow-hidden">
+                            <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 px-8 py-6">
+                                <h3 className="text-white font-semibold text-xl">Professional</h3>
+                                <p className="text-emerald-100 text-sm">For accounting firms managing 50-300 clients</p>
                             </div>
                             <div className="p-8">
                                 <div className="text-center mb-8">
-                                    <div className="flex items-baseline justify-center gap-1 mb-2">
-                                        <span className="text-4xl font-semibold text-[#1e3a5f]">399</span>
-                                        <span className="text-slate-600">DKK / month</span>
+                                    <div className="text-slate-500 text-sm mb-2">Starting from</div>
+                                    <div className="flex items-baseline justify-center gap-1">
+                                        <span className="text-4xl font-semibold text-white">2.499</span>
+                                        <span className="text-slate-400">DKK / month</span>
                                     </div>
-                                    <p className="text-slate-500 text-sm">Base subscription</p>
+                                    <p className="text-slate-500 text-sm mt-2">
+                                        Includes up to 100 connected clients
+                                    </p>
                                 </div>
                                 
-                                <div className="bg-slate-50 rounded-lg p-4 mb-8 text-center">
-                                    <div className="flex items-baseline justify-center gap-1 mb-1">
-                                        <span className="text-2xl font-semibold text-[#1e3a5f]">+ 69</span>
-                                        <span className="text-slate-600">DKK</span>
+                                <div className="bg-slate-900/50 rounded-xl p-4 mb-8">
+                                    <div className="text-center">
+                                        <span className="text-slate-400 text-sm">Additional clients:</span>
+                                        <span className="text-white font-medium ml-2">+15 DKK/client/month</span>
                                     </div>
-                                    <p className="text-sm text-slate-500">per active company / month</p>
                                 </div>
                                 
                                 <ul className="space-y-3 mb-8">
                                     {[
+                                        'Portfolio Risk Dashboard',
+                                        'Exception Inbox',
+                                        'Pre-VAT Control Mode',
                                         'Unlimited users',
-                                        'AI invoice extraction',
-                                        'Vendor learning system',
                                         'e-conomic integration',
-                                        'Accuracy dashboard',
+                                        'Transaction Intelligence',
                                         'Email support'
                                     ].map((item, i) => (
-                                        <li key={i} className="flex items-center gap-3 text-slate-600">
-                                            <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                        <li key={i} className="flex items-center gap-3 text-slate-300">
+                                            <CheckCircle className="w-4 h-4 text-emerald-500" />
                                             <span className="text-sm">{item}</span>
                                         </li>
                                     ))}
                                 </ul>
                                 
-                                <a href="#beta" className="block">
-                                    <Button className="w-full bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white">
-                                        Join Beta Program
+                                <a href="#demo" className="block">
+                                    <Button className="w-full bg-emerald-600 hover:bg-emerald-500 text-white">
+                                        Request Demo
                                     </Button>
                                 </a>
                             </div>
                         </div>
                         
                         <p className="text-center text-sm text-slate-500 mt-6">
-                            Only companies with processed invoices during the billing period are counted as active.
+                            Not per-invoice. Not per-transaction. Simple firm-level pricing.
                         </p>
                     </div>
                 </div>
             </section>
 
-            {/* Beta Invitation Section */}
-            <section id="beta" className="py-20 bg-white">
+            {/* Demo Request Section */}
+            <section id="demo" className="py-24 bg-slate-900/50">
                 <div className="max-w-6xl mx-auto px-6">
                     <div className="max-w-2xl mx-auto">
                         <div className="text-center mb-10">
-                            <h2 className="text-3xl font-semibold text-[#1e3a5f] mb-4">
-                                Currently Available for Selected Accounting Firms
+                            <h2 className="text-3xl font-semibold text-white mb-4">
+                                See Accountrix in Action
                             </h2>
-                            <p className="text-slate-600">
-                                We are onboarding a limited number of firms for early access to ensure quality support during the beta period.
+                            <p className="text-slate-400">
+                                Request a demo tailored to your firm's portfolio. We'll show you exactly which of your clients would benefit most.
                             </p>
                         </div>
                         
-                        <form onSubmit={handleBetaSubmit} className="bg-slate-50 rounded-lg p-8 border border-slate-200">
+                        <form onSubmit={handleBetaSubmit} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-8">
                             <div className="space-y-5">
                                 <div>
-                                    <Label htmlFor="firmName" className="text-slate-700">Firm Name *</Label>
+                                    <Label htmlFor="firmName" className="text-slate-300">Firm Name *</Label>
                                     <Input
                                         id="firmName"
                                         value={betaForm.firmName}
                                         onChange={(e) => setBetaForm({...betaForm, firmName: e.target.value})}
                                         placeholder="Your accounting firm"
-                                        className="mt-1.5 bg-white"
+                                        className="mt-1.5 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <Label htmlFor="contactPerson" className="text-slate-700">Contact Person</Label>
+                                    <Label htmlFor="contactPerson" className="text-slate-300">Contact Person</Label>
                                     <Input
                                         id="contactPerson"
                                         value={betaForm.contactPerson}
                                         onChange={(e) => setBetaForm({...betaForm, contactPerson: e.target.value})}
                                         placeholder="Your name"
-                                        className="mt-1.5 bg-white"
+                                        className="mt-1.5 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
                                     />
                                 </div>
                                 <div>
-                                    <Label htmlFor="email" className="text-slate-700">Email *</Label>
+                                    <Label htmlFor="email" className="text-slate-300">Work Email *</Label>
                                     <Input
                                         id="email"
                                         type="email"
                                         value={betaForm.email}
                                         onChange={(e) => setBetaForm({...betaForm, email: e.target.value})}
-                                        placeholder="email@yourfirm.dk"
-                                        className="mt-1.5 bg-white"
+                                        placeholder="you@yourfirm.dk"
+                                        className="mt-1.5 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <Label htmlFor="activeClients" className="text-slate-700">Number of Active Clients</Label>
+                                    <Label htmlFor="activeClients" className="text-slate-300">Number of Clients You Manage</Label>
                                     <Input
                                         id="activeClients"
                                         value={betaForm.activeClients}
                                         onChange={(e) => setBetaForm({...betaForm, activeClients: e.target.value})}
-                                        placeholder="e.g., 25-50"
-                                        className="mt-1.5 bg-white"
+                                        placeholder="e.g., 100-200"
+                                        className="mt-1.5 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
                                     />
                                 </div>
                                 <Button 
                                     type="submit" 
-                                    className="w-full bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white"
+                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
                                     disabled={submitting}
                                 >
-                                    {submitting ? 'Submitting...' : 'Request Early Access'}
+                                    {submitting ? 'Submitting...' : 'Request Demo'}
                                 </Button>
                             </div>
                         </form>
@@ -585,48 +653,46 @@ export default function LandingPage() {
             </section>
 
             {/* Footer */}
-            <footer className="bg-[#1e3a5f] text-white py-12">
+            <footer className="bg-slate-950 border-t border-slate-800 py-12">
                 <div className="max-w-6xl mx-auto px-6">
                     <div className="grid md:grid-cols-4 gap-8">
                         <div className="md:col-span-2">
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="w-8 h-8 bg-white/10 rounded flex items-center justify-center">
-                                    <FileText className="w-4 h-4 text-white" />
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                                    <Shield className="w-5 h-5 text-white" />
                                 </div>
-                                <span className="font-semibold text-lg">Accountrix</span>
+                                <span className="font-semibold text-white text-lg">Accountrix</span>
                             </div>
-                            <p className="text-white/70 text-sm leading-relaxed max-w-md">
-                                AI-assisted invoice processing for Danish accounting firms. Built for e-conomic integration with accountant-controlled workflows.
+                            <p className="text-slate-500 text-sm leading-relaxed max-w-md">
+                                Portfolio Risk & Control Intelligence for accounting firms. 
+                                Built for partners managing 100+ clients who need clarity, not more data.
                             </p>
                         </div>
                         <div>
-                            <h4 className="font-medium mb-4">Product</h4>
-                            <ul className="space-y-2 text-sm text-white/70">
-                                <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
-                                <li><a href="#workflow" className="hover:text-white transition-colors">How It Works</a></li>
+                            <h4 className="font-medium text-white mb-4">Platform</h4>
+                            <ul className="space-y-2 text-sm text-slate-500">
+                                <li><a href="#modules" className="hover:text-white transition-colors">Risk Dashboard</a></li>
+                                <li><a href="#modules" className="hover:text-white transition-colors">Exception Inbox</a></li>
+                                <li><a href="#modules" className="hover:text-white transition-colors">Pre-VAT Control</a></li>
                                 <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
-                                <li><a href="#security" className="hover:text-white transition-colors">Security</a></li>
                             </ul>
                         </div>
                         <div>
-                            <h4 className="font-medium mb-4">Legal</h4>
-                            <ul className="space-y-2 text-sm text-white/70">
+                            <h4 className="font-medium text-white mb-4">Legal</h4>
+                            <ul className="space-y-2 text-sm text-slate-500">
                                 <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
                                 <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
-                                <li><a href="#" className="hover:text-white transition-colors">Cookie Policy</a></li>
+                                <li><a href="#" className="hover:text-white transition-colors">GDPR Compliance</a></li>
                             </ul>
                         </div>
                     </div>
-                    <div className="border-t border-white/10 mt-10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-                        <p className="text-sm text-white/50">
-                            Accountrix ApS. All rights reserved.
+                    <div className="border-t border-slate-800 mt-10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <p className="text-sm text-slate-600">
+                            © 2026 Accountrix. All rights reserved.
                         </p>
                         <div className="flex items-center gap-6">
-                            <a href="mailto:contact@accountrix.dk" className="text-sm text-white/70 hover:text-white transition-colors">
-                                contact@accountrix.dk
-                            </a>
-                            <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="text-white/70 hover:text-white transition-colors">
-                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                            <a href="mailto:hello@accountrix.dk" className="text-sm text-slate-500 hover:text-white transition-colors">
+                                hello@accountrix.dk
                             </a>
                         </div>
                     </div>
