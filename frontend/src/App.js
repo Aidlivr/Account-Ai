@@ -26,6 +26,11 @@ import AdminPanel from "./pages/admin/AdminPanel";
 import SettingsPage from "./pages/settings/SettingsPage";
 import AIDashboardPage from "./pages/ai-dashboard/AIDashboardPage";
 
+// Portfolio Risk Platform Pages
+import PortfolioRiskDashboard from "./pages/portfolio/PortfolioRiskDashboard";
+import ExceptionInbox from "./pages/portfolio/ExceptionInbox";
+import PreVATReview from "./pages/portfolio/PreVATReview";
+
 function App() {
     return (
         <AuthProvider>
@@ -39,7 +44,7 @@ function App() {
 
                         {/* Protected Routes */}
                         <Route path="/app" element={<MainLayout />}>
-                            <Route index element={<Navigate to="/app/dashboard" replace />} />
+                            <Route index element={<Navigate to="/app/portfolio" replace />} />
                             <Route path="dashboard" element={<DashboardPage />} />
                             <Route path="companies" element={<CompaniesPage />} />
                             <Route path="documents" element={<DocumentsPage />} />
@@ -52,10 +57,15 @@ function App() {
                             <Route path="admin" element={<AdminPanel />} />
                             <Route path="ai-dashboard" element={<AIDashboardPage />} />
                             <Route path="settings" element={<SettingsPage />} />
+                            
+                            {/* Portfolio Risk Platform Routes */}
+                            <Route path="portfolio" element={<PortfolioRiskDashboard />} />
+                            <Route path="portfolio/exceptions" element={<ExceptionInbox />} />
+                            <Route path="portfolio/pre-vat" element={<PreVATReview />} />
                         </Route>
 
                         {/* Legacy routes - redirect to /app */}
-                        <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
+                        <Route path="/dashboard" element={<Navigate to="/app/portfolio" replace />} />
                         <Route path="/companies" element={<Navigate to="/app/companies" replace />} />
                         <Route path="/documents" element={<Navigate to="/app/documents" replace />} />
                         <Route path="/vouchers" element={<Navigate to="/app/vouchers" replace />} />
