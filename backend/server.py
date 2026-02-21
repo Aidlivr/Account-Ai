@@ -37,6 +37,9 @@ from danish_accounting import (
 )
 from vat_rules import get_vat_rules, apply_vat_rules, VATRuleFactory
 
+# Import portfolio routes
+from portfolio_routes import portfolio_router, setup_portfolio_routes
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
