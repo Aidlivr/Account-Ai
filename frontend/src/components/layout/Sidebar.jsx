@@ -115,6 +115,30 @@ export const Sidebar = () => {
 
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+                {/* Portfolio Risk Platform - Primary */}
+                <div className="pb-2">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3">
+                        Portfolio Control
+                    </span>
+                </div>
+                {portfolioItems.map((item) => (
+                    <NavLink
+                        key={item.to}
+                        to={item.to}
+                        className={({ isActive }) => cn("sidebar-link", isActive && "active")}
+                        data-testid={`nav-${item.label.toLowerCase().replace(' ', '-')}`}
+                    >
+                        <item.icon className="h-5 w-5" />
+                        <span>{item.label}</span>
+                    </NavLink>
+                ))}
+
+                {/* Secondary Navigation */}
+                <div className="pt-4 pb-2">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3">
+                        Tools
+                    </span>
+                </div>
                 {navItems.map((item) => (
                     <NavLink
                         key={item.to}
