@@ -314,22 +314,22 @@ Return JSON in this exact format:
         return result
     
     async def _call_emergent_llm(self, prompt: str) -> Dict[str, Any]:
-        """Call Emergent LLM integration (fallback)"""
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-        
+        """Call OpenAI directly (replaces Emergent LLM integration)"""
+        from openai import AsyncOpenAI
+        client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         last_error = None
-        
+
         for attempt in range(AI_CONFIG["max_retries"]):
             try:
-                chat = LlmChat(
-                    api_key=self.llm_key,
-                    session_id=f"invoice-{uuid.uuid4()}",
-                    system_message=SYSTEM_PROMPT
-                ).with_model(AI_CONFIG["provider"], AI_CONFIG["model"])
-                
-                response = await chat.send_message(UserMessage(text=prompt))
-                
-                # Extract JSON from response
+                resp = await client.chat.completions.create(
+                    model=AI_CONFIG["model"],
+                    temperature=AI_CONFIG["temperature"],
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                response = resp.choices[0].message.content
                 json_match = re.search(r'\{[\s\S]*\}', response)
                 if json_match:
                     try:
@@ -341,11 +341,10 @@ Return JSON in this exact format:
                 else:
                     last_error = "No JSON found in response"
                     logger.warning(f"AI response contained no JSON (attempt {attempt + 1})")
-                    
             except Exception as e:
                 last_error = str(e)
                 logger.error(f"AI call error (attempt {attempt + 1}): {e}")
-        
+
         return {"success": False, "error": last_error}
     
     # ==================== SCHEMA VALIDATION ====================

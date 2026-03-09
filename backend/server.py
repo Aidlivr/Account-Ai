@@ -21,7 +21,7 @@ from cryptography.fernet import Fernet
 import hashlib
 
 # Import AI integration
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from openai import AsyncOpenAI as _OpenAIClient
 
 # Import production AI modules
 from ai_production import ProductionAIService, AIAnalyticsService, ActiveCompanyService
@@ -57,7 +57,8 @@ JWT_EXPIRATION_HOURS = 24
 stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', '')
 
 # Emergent LLM Key
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+EMERGENT_LLM_KEY = os.environ.get('OPENAI_API_KEY', '')  # Now uses standard OpenAI key
+_openai_client = _OpenAIClient(api_key=EMERGENT_LLM_KEY) if EMERGENT_LLM_KEY else None
 
 # Encryption key for sensitive data
 ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY', Fernet.generate_key().decode())
@@ -558,32 +559,17 @@ class AIService:
     async def extract_invoice_data_with_confidence(text: str, tenant_id: str = None) -> Dict[str, Any]:
         """Extract invoice data with field-level confidence scores"""
         try:
-            chat = LlmChat(
-                api_key=EMERGENT_LLM_KEY,
-                session_id=f"invoice-{uuid.uuid4()}",
-                system_message="""You are an expert invoice data extractor. Extract structured data from invoice text.
+            _sys = """You are an expert invoice data extractor. Extract structured data from invoice text.
                 For each field, provide a confidence score (0.0-1.0) based on how clearly the information was found.
-                
                 Return ONLY valid JSON with this structure:
-                {
-                    "supplier_name": {"value": "string", "confidence": 0.0-1.0},
-                    "cvr_number": {"value": "string (8 digits)", "confidence": 0.0-1.0},
-                    "invoice_number": {"value": "string", "confidence": 0.0-1.0},
-                    "invoice_date": {"value": "YYYY-MM-DD", "confidence": 0.0-1.0},
-                    "due_date": {"value": "YYYY-MM-DD", "confidence": 0.0-1.0},
-                    "net_amount": {"value": number, "confidence": 0.0-1.0},
-                    "vat_amount": {"value": number, "confidence": 0.0-1.0},
-                    "total_amount": {"value": number, "confidence": 0.0-1.0},
-                    "vat_percentage": {"value": number, "confidence": 0.0-1.0},
-                    "currency": {"value": "DKK/EUR/etc", "confidence": 0.0-1.0},
-                    "line_items": [{"description": "string", "quantity": number, "unit_price": number, "amount": number}]
-                }
-                
-                Set confidence < 0.7 if the field is unclear, partially visible, or inferred.
-                Set confidence > 0.9 only if clearly visible and unambiguous."""
-            ).with_model("openai", "gpt-5.2")
-            
-            response = await chat.send_message(UserMessage(text=f"Extract invoice data from this text:\n\n{text}"))
+                {"supplier_name":{"value":"string","confidence":0.0},"cvr_number":{"value":"string","confidence":0.0},"invoice_number":{"value":"string","confidence":0.0},"invoice_date":{"value":"YYYY-MM-DD","confidence":0.0},"due_date":{"value":"YYYY-MM-DD","confidence":0.0},"net_amount":{"value":0,"confidence":0.0},"vat_amount":{"value":0,"confidence":0.0},"total_amount":{"value":0,"confidence":0.0},"vat_percentage":{"value":0,"confidence":0.0},"currency":{"value":"DKK","confidence":0.0},"line_items":[]}
+                Set confidence < 0.7 if unclear. Set > 0.9 only if clearly visible."""
+            _resp = await _openai_client.chat.completions.create(
+                model="gpt-4o",
+                temperature=0.1,
+                messages=[{"role":"system","content":_sys},{"role":"user","content":f"Extract invoice data from this text:\n\n{text}"}]
+            )
+            response = _resp.choices[0].message.content
             
             # Parse JSON from response
             json_match = re.search(r'\{[\s\S]*\}', response)
@@ -680,22 +666,14 @@ class AIService:
         
         # Otherwise, use AI
         try:
-            chat = LlmChat(
-                api_key=EMERGENT_LLM_KEY,
-                session_id=f"account-{uuid.uuid4()}",
-                system_message="""You are a Danish accounting expert. Suggest the appropriate chart of accounts category.
-                Use standard Danish kontoplan codes.
-                Return JSON: {
-                    "account_code": "4-digit code",
-                    "account_name": "Account name in Danish",
-                    "vat_code": "25 or 0",
-                    "confidence": 0.0-1.0
-                }"""
-            ).with_model("openai", "gpt-5.2")
-            
-            response = await chat.send_message(UserMessage(
-                text=f"Supplier: {supplier_name}\nDescription: {description}\nAmount: {amount} DKK\nSuggest Danish accounting category."
-            ))
+            _resp2 = await _openai_client.chat.completions.create(
+                model="gpt-4o", temperature=0.1,
+                messages=[
+                    {"role":"system","content":"You are a Danish accounting expert. Suggest the appropriate chart of accounts category. Use standard Danish kontoplan codes. Return JSON: {\"account_code\":\"4-digit code\",\"account_name\":\"Account name in Danish\",\"vat_code\":\"25 or 0\",\"confidence\":0.0}"},
+                    {"role":"user","content":f"Supplier: {supplier_name}\nDescription: {description}\nAmount: {amount} DKK\nSuggest Danish accounting category."}
+                ]
+            )
+            response = _resp2.choices[0].message.content
             
             json_match = re.search(r'\{[\s\S]*\}', response)
             if json_match:
@@ -712,15 +690,14 @@ class AIService:
     async def generate_vat_risk_summary(vat_data: Dict[str, Any]) -> str:
         """Generate VAT risk analysis summary"""
         try:
-            chat = LlmChat(
-                api_key=EMERGENT_LLM_KEY,
-                session_id=f"vat-{uuid.uuid4()}",
-                system_message="You are a Danish VAT compliance expert. Analyze VAT data and provide risk assessment in Danish."
-            ).with_model("openai", "gpt-5.2")
-            
-            response = await chat.send_message(UserMessage(
-                text=f"Analyze this VAT data for compliance risks:\n{json.dumps(vat_data, indent=2)}"
-            ))
+            _resp3 = await _openai_client.chat.completions.create(
+                model="gpt-4o", temperature=0.2,
+                messages=[
+                    {"role":"system","content":"You are a Danish VAT compliance expert. Analyze VAT data and provide risk assessment in Danish."},
+                    {"role":"user","content":f"Analyze this VAT data for compliance risks:\n{json.dumps(vat_data, indent=2)}"}
+                ]
+            )
+            response = _resp3.choices[0].message.content
             return response
         except Exception as e:
             logger.error(f"AI VAT analysis error: {e}")
