@@ -230,3 +230,161 @@ async def test_economic_standalone():
     """
     result = await economic_service.test_connection()
     return result
+
+
+# ── Per-User E-conomic Connection Routes ──────────────────────────────────────
+# Each accountant connects their OWN e-conomic account
+
+from fastapi import Header
+import jwt as pyjwt
+
+def get_user_from_token(authorization: str = Header(None)):
+    """Extract user_id from JWT token."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    token = authorization.split(" ")[1]
+    try:
+        import os
+        secret = os.environ.get("JWT_SECRET", "ai-accounting-copilot-secret-key-2024")
+        payload = pyjwt.decode(token, secret, algorithms=["HS256"])
+        return payload
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+user_economic_router = APIRouter(prefix="/api/user/economic", tags=["User E-conomic"])
+
+@user_economic_router.get("/callback")
+async def user_economic_callback(request: Request, authorization: str = Header(None)):
+    """
+    Per-user OAuth2 callback.
+    After accountant grants access, saves their grant token to database.
+    """
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+    from user_economic_service import UserEconomicService
+    from email_service import send_economic_connected_email
+
+    grant_token = request.query_params.get("token") or request.query_params.get("agreementGrantToken")
+
+    if not grant_token:
+        return {"status": "error", "message": "No grant token received"}
+
+    # Get user from token if provided
+    user_id = None
+    user_email = ""
+    user_name = ""
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            secret = os.environ.get("JWT_SECRET", "ai-accounting-copilot-secret-key-2024")
+            payload = pyjwt.decode(authorization.split(" ")[1], secret, algorithms=["HS256"])
+            user_id = payload.get("user_id")
+            user_email = payload.get("email", "")
+        except Exception:
+            pass
+
+    # If no auth header, try to get user_id from query param
+    if not user_id:
+        user_id = request.query_params.get("user_id")
+
+    if not user_id:
+        # Store token temporarily with a session key
+        return {
+            "status": "success",
+            "message": "Grant token received! Please log in and go to Settings to complete the connection.",
+            "grant_token": grant_token,
+        }
+
+    # Save the connection
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    service = UserEconomicService(db)
+
+    await service.save_connection(user_id, grant_token, user_email)
+
+    # Sync clients
+    try:
+        sync_result = await service.sync_clients_to_portfolio(user_id, user_email)
+        synced_count = sync_result.get("synced", 0)
+
+        # Send confirmation email
+        if user_email:
+            import asyncio
+            asyncio.create_task(send_economic_connected_email(user_email, user_name or user_email, synced_count))
+
+        logger.info(f"E-conomic connected and synced {synced_count} clients for user {user_id}")
+
+        return {
+            "status": "success",
+            "message": f"E-conomic connected! {synced_count} clients synced to your dashboard.",
+            "synced_clients": synced_count,
+            "redirect": "https://accountrix.norabot.ai/app/portfolio"
+        }
+    except Exception as e:
+        logger.error(f"Sync failed for user {user_id}: {e}")
+        return {"status": "partial", "message": "Connected but sync failed. Try syncing from Settings."}
+
+
+@user_economic_router.get("/status")
+async def user_economic_status(authorization: str = Header(None)):
+    """Check if current user has connected their e-conomic."""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+    from user_economic_service import UserEconomicService
+
+    user = get_user_from_token(authorization)
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    service = UserEconomicService(db)
+
+    conn = await service.get_connection(user["user_id"])
+    return {
+        "connected": bool(conn and conn.get("status") == "active"),
+        "connected_at": conn.get("connected_at") if conn else None,
+    }
+
+
+@user_economic_router.post("/sync")
+async def user_sync_clients(authorization: str = Header(None)):
+    """Manually sync clients from user's e-conomic account."""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+    from user_economic_service import UserEconomicService
+
+    user = get_user_from_token(authorization)
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    service = UserEconomicService(db)
+
+    try:
+        result = await service.sync_clients_to_portfolio(user["user_id"], user.get("email", ""))
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@user_economic_router.get("/test")
+async def user_test_economic(authorization: str = Header(None)):
+    """Test current user's e-conomic connection."""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+    from user_economic_service import UserEconomicService
+
+    user = get_user_from_token(authorization)
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    service = UserEconomicService(db)
+    return await service.test_connection(user["user_id"])
+
+
+@user_economic_router.delete("/disconnect")
+async def user_disconnect_economic(authorization: str = Header(None)):
+    """Disconnect user's e-conomic account."""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+    from user_economic_service import UserEconomicService
+
+    user = get_user_from_token(authorization)
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    service = UserEconomicService(db)
+    return await service.disconnect(user["user_id"])

@@ -39,7 +39,14 @@ from vat_rules import get_vat_rules, apply_vat_rules, VATRuleFactory
 
 # Import portfolio routes
 from portfolio_routes import portfolio_router, setup_portfolio_routes
-from economic_routes import economic_router, test_economic_router
+from economic_routes import economic_router, test_economic_router, user_economic_router
+from user_economic_service import UserEconomicService
+from email_service import (
+    notify_admin_new_registration,
+    send_welcome_email as send_welcome_email_real,
+    send_economic_connected_email,
+    send_subscription_activated_email,
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1026,8 +1033,9 @@ async def register(user_data: UserCreate, background_tasks: BackgroundTasks):
         details={"email": user_data.email, "role": user_data.role}
     )
     
-    # Send welcome email (mocked)
-    background_tasks.add_task(MockEmailService.send_welcome_email, user_data.email, user_data.name)
+    # Send welcome email + notify admin
+    background_tasks.add_task(send_welcome_email_real, user_data.email, user_data.name)
+    background_tasks.add_task(notify_admin_new_registration, user_data.name, user_data.email, user_data.role)
     
     return TokenResponse(
         access_token=token,
@@ -2375,7 +2383,13 @@ async def admin_activate_subscription(data: AdminSubscriptionActivate, admin: di
         entity_id=subscription_id,
         details={"plan_id": data.plan_id, "activated_by": admin["email"]}
     )
-    
+
+    # Send email notification to user
+    import asyncio
+    asyncio.create_task(send_subscription_activated_email(
+        target_user["email"], target_user["name"], plan["name"]
+    ))
+
     return {
         "message": "Subscription activated",
         "subscription_id": subscription_id,
@@ -3038,6 +3052,56 @@ async def add_company_custom_journal(
 # ==================== INCLUDE ROUTERS ====================
 
 api_router.include_router(auth_router)
+api_router.include_router(tenant_router)
+api_router.include_router(document_router)
+api_router.include_router(voucher_router)
+api_router.include_router(vendor_router)
+api_router.include_router(activity_router)
+api_router.include_router(reconciliation_router)
+api_router.include_router(vat_router)
+api_router.include_router(billing_router)
+api_router.include_router(admin_router)
+api_router.include_router(feedback_router)
+api_router.include_router(beta_router)
+api_router.include_router(export_router)
+api_router.include_router(email_router)
+api_router.include_router(ai_dashboard_router)
+api_router.include_router(accounting_data_router)
+
+# Setup and include portfolio routes
+setup_portfolio_routes(portfolio_router, db, get_current_user)
+api_router.include_router(portfolio_router)
+
+app.include_router(economic_router)
+app.include_router(test_economic_router)
+app.include_router(user_economic_router)
+app.include_router(api_router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
+    global production_ai_service, ai_analytics_service, active_company_service
+    
+    # Initialize production AI service
+    production_ai_service = ProductionAIService(db, EMERGENT_LLM_KEY)
+    ai_analytics_service = AIAnalyticsService(db)
+    active_company_service = ActiveCompanyService(db)
+    
+    logger.info("Production AI services initialized")
+    logger.info(f"Active VAT country: {VATRuleFactory._active_country}")
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    client.close()
+
 # ==================== ENHANCED ADMIN ENDPOINTS ====================
 
 @admin_router.get("/users/detailed")
@@ -3076,51 +3140,3 @@ async def get_revenue_overview(admin: dict = Depends(require_role([UserRole.ADMI
         "professional_count": sum(1 for s in active_subs if s.get("plan_id") == "professional"),
         "enterprise_count": sum(1 for s in active_subs if s.get("plan_id") == "enterprise"),
     }
-api_router.include_router(tenant_router)
-api_router.include_router(document_router)
-api_router.include_router(voucher_router)
-api_router.include_router(vendor_router)
-api_router.include_router(activity_router)
-api_router.include_router(reconciliation_router)
-api_router.include_router(vat_router)
-api_router.include_router(billing_router)
-api_router.include_router(admin_router)
-api_router.include_router(feedback_router)
-api_router.include_router(beta_router)
-api_router.include_router(export_router)
-api_router.include_router(email_router)
-api_router.include_router(ai_dashboard_router)
-api_router.include_router(accounting_data_router)
-
-# Setup and include portfolio routes
-setup_portfolio_routes(portfolio_router, db, get_current_user)
-api_router.include_router(portfolio_router)
-
-app.include_router(economic_router)
-app.include_router(test_economic_router)
-app.include_router(api_router)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on startup"""
-    global production_ai_service, ai_analytics_service, active_company_service
-    
-    # Initialize production AI service
-    production_ai_service = ProductionAIService(db, EMERGENT_LLM_KEY)
-    ai_analytics_service = AIAnalyticsService(db)
-    active_company_service = ActiveCompanyService(db)
-    
-    logger.info("Production AI services initialized")
-    logger.info(f"Active VAT country: {VATRuleFactory._active_country}")
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
