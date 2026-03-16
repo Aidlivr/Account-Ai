@@ -39,6 +39,7 @@ from vat_rules import get_vat_rules, apply_vat_rules, VATRuleFactory
 
 # Import portfolio routes
 from portfolio_routes import portfolio_router, setup_portfolio_routes
+from economic_routes import economic_router, test_economic_router
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -56,7 +57,7 @@ JWT_EXPIRATION_HOURS = 24
 # Stripe Configuration
 stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', '')
 
-# Emergent LLM Key
+# OpenAI Key
 EMERGENT_LLM_KEY = os.environ.get('OPENAI_API_KEY', '')  # Now uses standard OpenAI key
 _openai_client = _OpenAIClient(api_key=EMERGENT_LLM_KEY) if EMERGENT_LLM_KEY else None
 
@@ -3057,6 +3058,8 @@ api_router.include_router(accounting_data_router)
 setup_portfolio_routes(portfolio_router, db, get_current_user)
 api_router.include_router(portfolio_router)
 
+app.include_router(economic_router)
+app.include_router(test_economic_router)
 app.include_router(api_router)
 
 app.add_middleware(
