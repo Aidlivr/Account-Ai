@@ -59,7 +59,7 @@ async def economic_callback(request: Request):
     e-conomic sends agreementGrantToken as a query parameter.
     Token is NOT logged for security.
     """
-    grant_token = request.query_params.get("agreementGrantToken")
+    grant_token = request.query_params.get("token") or request.query_params.get("agreementGrantToken")
 
     if not grant_token:
         logger.warning("E-conomic callback received with no agreementGrantToken")
