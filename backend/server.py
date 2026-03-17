@@ -3060,6 +3060,44 @@ api_router.include_router(activity_router)
 api_router.include_router(reconciliation_router)
 api_router.include_router(vat_router)
 api_router.include_router(billing_router)
+
+@admin_router.get("/users/detailed")
+async def get_users_detailed(admin: dict = Depends(require_role([UserRole.ADMIN]))):
+    """Get all users with client counts, subscription status and monthly cost."""
+    users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(1000)
+    PLAN_PRICES = {"professional": 2499, "enterprise": 4999}
+    result = []
+    for user in users:
+        sub = await db.subscriptions.find_one({"user_id": user["id"], "status": "active"}, {"_id": 0})
+        client_count = await db.portfolio_clients.count_documents({"owner_user_id": user["id"]})
+        if client_count == 0:
+            client_count = await db.portfolio_clients.count_documents({})
+        base_price = PLAN_PRICES.get(sub.get("plan_id", ""), 0) if sub else 0
+        extra_clients = max(0, client_count - 100)
+        monthly_cost = base_price + (extra_clients * 15)
+        result.append({
+            **user,
+            "subscription_plan": sub.get("plan_id") if sub else None,
+            "subscription_status": "active" if sub else "none",
+            "client_count": client_count,
+            "monthly_cost_dkk": monthly_cost,
+        })
+    return result
+
+@admin_router.get("/revenue")
+async def get_revenue_overview(admin: dict = Depends(require_role([UserRole.ADMIN]))):
+    """Get MRR and revenue breakdown."""
+    PLAN_PRICES = {"professional": 2499, "enterprise": 4999}
+    active_subs = await db.subscriptions.find({"status": "active"}, {"_id": 0}).to_list(1000)
+    mrr = sum(PLAN_PRICES.get(s.get("plan_id", ""), 0) for s in active_subs)
+    return {
+        "mrr_dkk": mrr,
+        "arr_dkk": mrr * 12,
+        "active_subscriptions": len(active_subs),
+        "professional_count": sum(1 for s in active_subs if s.get("plan_id") == "professional"),
+        "enterprise_count": sum(1 for s in active_subs if s.get("plan_id") == "enterprise"),
+    }
+
 api_router.include_router(admin_router)
 api_router.include_router(feedback_router)
 api_router.include_router(beta_router)
