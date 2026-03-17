@@ -51,6 +51,11 @@ export default function RegisterPage() {
         setIsLoading(false);
 
         if (result.success) {
+            // Accountants go through approval — redirect to pending page
+            if (data.role === 'accountant') {
+                navigate('/pending-approval');
+                return;
+            }
             toast.success('Account created successfully!');
             navigate('/onboarding');
         } else {

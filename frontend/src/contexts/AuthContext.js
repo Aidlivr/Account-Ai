@@ -61,6 +61,10 @@ export const AuthProvider = ({ children }) => {
             setError(null);
             const response = await authAPI.register({ email, password, name, role });
             const { access_token, user: userData } = response.data;
+            // Accountants need approval - don't set auth state
+            if (role === 'accountant') {
+                return { success: true, pending: true };
+            }
             localStorage.setItem('token', access_token);
             localStorage.setItem('user', JSON.stringify(userData));
             setUser(userData);
