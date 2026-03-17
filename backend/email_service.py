@@ -165,3 +165,28 @@ async def send_subscription_activated_email(user_email: str, user_name: str, pla
     """
     text = f"Hi {user_name}, your {plan_name} subscription is active. View your dashboard at https://accountrix.norabot.ai/app/portfolio"
     send_email_sync(user_email, subject, html, text)
+
+
+async def send_approval_email(user_email: str, user_name: str):
+    """Notify user when their account is approved."""
+    subject = "✅ Your Accountrix account is approved!"
+    html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #0F766E; padding: 24px; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 20px;">Account Approved!</h1>
+        </div>
+        <div style="background: #f9f9f9; padding: 24px; border-radius: 0 0 8px 8px; border: 1px solid #e0e0e0;">
+            <p style="color: #333;">Hi {user_name},</p>
+            <p style="color: #555;">Great news! Your Accountrix account has been approved. You can now log in and start using the platform.</p>
+            <a href="https://accountrix.norabot.ai/login"
+               style="display: inline-block; background: #0F766E; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+                Log in to Accountrix →
+            </a>
+            <p style="color: #999; font-size: 12px; margin-top: 24px;">
+                Connect your e-conomic account in Settings to sync your clients.
+            </p>
+        </div>
+    </div>
+    """
+    text = f"Hi {user_name}, your Accountrix account is approved! Log in at https://accountrix.norabot.ai/login"
+    send_email_sync(user_email, subject, html, text)

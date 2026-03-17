@@ -26,6 +26,7 @@ export default function AdminPanel() {
     const [plans, setPlans] = useState([]);
     const [subscriptionRequests, setSubscriptionRequests] = useState([]);
     const [revenue, setRevenue] = useState(null);
+    const [pendingUsers, setPendingUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isActivateOpen, setIsActivateOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
@@ -38,18 +39,20 @@ export default function AdminPanel() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [statsRes, usersRes, plansRes, requestsRes, revenueRes] = await Promise.all([
+            const [statsRes, usersRes, plansRes, requestsRes, revenueRes, pendingRes] = await Promise.all([
                 adminAPI.getStats(),
                 api('/admin/users/detailed'),
                 billingAPI.getPlans(),
                 adminAPI.getSubscriptionRequests(),
                 api('/admin/revenue'),
+                api('/admin/users/pending'),
             ]);
             setStats(statsRes.data);
             setUsers(usersRes.data);
             setPlans(plansRes.data);
             setSubscriptionRequests(requestsRes.data);
             setRevenue(revenueRes.data);
+            setPendingUsers(pendingRes.data || []);
         } catch (err) {
             console.error(err);
             toast.error('Failed to load admin data');
@@ -64,6 +67,31 @@ export default function AdminPanel() {
             setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
             toast.success('Role updated');
         } catch { toast.error('Failed to update role'); }
+    };
+
+    const approveUser = async (userId, userEmail) => {
+        try {
+            await axios.post(`${BACKEND_URL}/api/admin/users/${userId}/approve`, {}, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+            toast.success(`${userEmail} approved!`);
+            fetchData();
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Failed to approve');
+        }
+    };
+
+    const rejectUser = async (userId, userEmail) => {
+        if (!window.confirm(`Reject ${userEmail}?`)) return;
+        try {
+            await axios.post(`${BACKEND_URL}/api/admin/users/${userId}/reject`, {}, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+            toast.success(`${userEmail} rejected`);
+            fetchData();
+        } catch (err) {
+            toast.error('Failed to reject');
+        }
     };
 
     const openActivateDialog = (user) => {
@@ -187,6 +215,12 @@ export default function AdminPanel() {
             {/* Tabs */}
             <Tabs defaultValue="users" className="space-y-6">
                 <TabsList>
+                    <TabsTrigger value="pending">
+                        Pending Approval
+                        {pendingUsers.length > 0 && (
+                            <Badge variant="destructive" className="ml-2">{pendingUsers.length}</Badge>
+                        )}
+                    </TabsTrigger>
                     <TabsTrigger value="users">Users & Clients</TabsTrigger>
                     <TabsTrigger value="subscriptions">
                         Subscriptions
@@ -195,6 +229,71 @@ export default function AdminPanel() {
                         )}
                     </TabsTrigger>
                 </TabsList>
+
+                {/* Pending Approval Tab */}
+                <TabsContent value="pending">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Clock className="h-5 w-5 text-yellow-500" />Pending Approvals
+                            </CardTitle>
+                            <CardDescription>
+                                Accountants waiting for your approval before they can log in
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {pendingUsers.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16">
+                                    <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
+                                    <p className="text-muted-foreground">No pending approvals</p>
+                                </div>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Name</TableHead>
+                                            <TableHead>Email</TableHead>
+                                            <TableHead>Role</TableHead>
+                                            <TableHead>Registered</TableHead>
+                                            <TableHead>Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {pendingUsers.map((user) => (
+                                            <TableRow key={user.id}>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-7 h-7 rounded-full bg-yellow-500/10 flex items-center justify-center text-xs font-bold text-yellow-500">
+                                                            {user.name?.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <span className="font-medium text-sm">{user.name}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline">{user.role}</Badge>
+                                                </TableCell>
+                                                <TableCell className="text-xs text-muted-foreground">{formatDate(user.created_at)}</TableCell>
+                                                <TableCell>
+                                                    <div className="flex gap-2">
+                                                        <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-500"
+                                                            onClick={() => approveUser(user.id, user.email)}>
+                                                            ✓ Approve
+                                                        </Button>
+                                                        <Button size="sm" variant="outline" className="h-7 text-xs text-red-500 border-red-500/20"
+                                                            onClick={() => rejectUser(user.id, user.email)}>
+                                                            ✗ Reject
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
 
                 {/* Users Tab */}
                 <TabsContent value="users">

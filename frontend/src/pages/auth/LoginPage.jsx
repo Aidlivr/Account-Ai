@@ -26,7 +26,7 @@ export default function LoginPage() {
     });
 
     if (isAuthenticated) {
-        return <Navigate to="/dashboard" replace />;
+        return <Navigate to="/app/portfolio" replace />;
     }
 
     const onSubmit = async (data) => {
@@ -36,9 +36,13 @@ export default function LoginPage() {
 
         if (result.success) {
             toast.success('Welcome back!');
-            navigate('/dashboard');
+            navigate('/app/portfolio');
         } else {
-            toast.error(result.error);
+            if (result.error && result.error.includes('pending approval')) {
+                toast.error('Your account is pending approval. You will receive an email once approved.', { duration: 6000 });
+            } else {
+                toast.error(result.error);
+            }
         }
     };
 
