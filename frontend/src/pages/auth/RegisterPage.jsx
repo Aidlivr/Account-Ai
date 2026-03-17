@@ -42,7 +42,7 @@ export default function RegisterPage() {
     });
 
     if (isAuthenticated) {
-        return <Navigate to="/dashboard" replace />;
+        return <Navigate to="/app/portfolio" replace />;
     }
 
     const onSubmit = async (data) => {
@@ -52,7 +52,7 @@ export default function RegisterPage() {
 
         if (result.success) {
             toast.success('Account created successfully!');
-            navigate('/dashboard');
+            navigate('/onboarding');
         } else {
             toast.error(result.error);
         }

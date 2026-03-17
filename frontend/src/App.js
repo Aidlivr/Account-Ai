@@ -12,6 +12,7 @@ import LandingPage from "./pages/landing/LandingPage";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
+import OnboardingPage from "./pages/onboarding/OnboardingPage";
 
 // Main Pages
 import DashboardPage from "./pages/dashboard/DashboardPage";
@@ -43,6 +44,7 @@ function App() {
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/register" element={<RegisterPage />} />
                         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                        <Route path="/onboarding" element={<OnboardingPage />} />
 
                         {/* Protected Routes */}
                         <Route path="/app" element={<MainLayout />}>
