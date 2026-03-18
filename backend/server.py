@@ -46,7 +46,6 @@ from email_service import (
     send_welcome_email as send_welcome_email_real,
     send_economic_connected_email,
     send_subscription_activated_email,
-    send_approval_email,
 )
 
 ROOT_DIR = Path(__file__).parent
@@ -150,9 +149,6 @@ class UserCreate(BaseModel):
     password: str
     name: str
     role: str = UserRole.SME_USER
-    firm_name: Optional[str] = None
-    cvr_number: Optional[str] = None
-    phone: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -1016,34 +1012,31 @@ async def register(user_data: UserCreate, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=400, detail="Email already registered")
     
     user_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
-    needs_approval = user_data.role == UserRole.ACCOUNTANT
-    approval_status = "pending" if needs_approval else "approved"
-
     user_doc = {
         "id": user_id,
         "email": user_data.email,
         "password": hash_password(user_data.password),
         "name": user_data.name,
         "role": user_data.role,
-        "firm_name": user_data.firm_name or "",
-        "cvr_number": user_data.cvr_number or "",
-        "phone": user_data.phone or "",
-        "approval_status": approval_status,
-        "created_at": now,
-        "updated_at": now,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }
     await db.users.insert_one(user_doc)
+    
     token = create_token(user_id, user_data.email, user_data.role)
+    
     await ActivityService.log(
         user_id=user_id,
         activity_type=ActivityType.USER_REGISTERED,
         entity_type="user",
         entity_id=user_id,
-        details={"email": user_data.email, "role": user_data.role, "approval_status": approval_status}
+        details={"email": user_data.email, "role": user_data.role}
     )
+    
+    # Send welcome email + notify admin
     background_tasks.add_task(send_welcome_email_real, user_data.email, user_data.name)
-    background_tasks.add_task(notify_admin_new_registration, user_data.name, user_data.email, user_data.role, user_data.firm_name or "", user_data.cvr_number or "", user_data.phone or "")
+    background_tasks.add_task(notify_admin_new_registration, user_data.name, user_data.email, user_data.role)
+    
     return TokenResponse(
         access_token=token,
         user=UserResponse(
@@ -1051,7 +1044,7 @@ async def register(user_data: UserCreate, background_tasks: BackgroundTasks):
             email=user_data.email,
             name=user_data.name,
             role=user_data.role,
-            created_at=now
+            created_at=user_doc["created_at"]
         )
     )
 
@@ -1060,14 +1053,7 @@ async def login(credentials: UserLogin):
     user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
     if not user or not verify_password(credentials.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    # Check approval status for accountants
-    if user.get("approval_status") == "pending":
-        raise HTTPException(
-            status_code=403,
-            detail="Your account is pending approval. You will receive an email once approved."
-        )
-
+    
     token = create_token(user["id"], user["email"], user["role"])
     
     await ActivityService.log(
@@ -3074,79 +3060,6 @@ api_router.include_router(activity_router)
 api_router.include_router(reconciliation_router)
 api_router.include_router(vat_router)
 api_router.include_router(billing_router)
-@admin_router.post("/users/{user_id}/approve")
-async def approve_user(user_id: str, admin: dict = Depends(require_role([UserRole.ADMIN]))):
-    """Approve a pending accountant registration."""
-    import asyncio
-    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if user.get("approval_status") == "approved":
-        raise HTTPException(status_code=400, detail="User is already approved")
-    await db.users.update_one(
-        {"id": user_id},
-        {"$set": {"approval_status": "approved", "approved_by": admin["id"], "approved_at": datetime.now(timezone.utc).isoformat()}}
-    )
-    # Send approval email
-    asyncio.create_task(send_approval_email(user["email"], user["name"]))
-    return {"message": f"User {user['email']} approved successfully"}
-
-@admin_router.post("/users/{user_id}/reject")
-async def reject_user(user_id: str, admin: dict = Depends(require_role([UserRole.ADMIN]))):
-    """Reject a pending accountant registration."""
-    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    await db.users.update_one(
-        {"id": user_id},
-        {"$set": {"approval_status": "rejected", "updated_at": datetime.now(timezone.utc).isoformat()}}
-    )
-    return {"message": f"User {user['email']} rejected"}
-
-@admin_router.get("/users/pending")
-async def get_pending_users(admin: dict = Depends(require_role([UserRole.ADMIN]))):
-    """Get all users pending approval."""
-    users = await db.users.find(
-        {"approval_status": "pending"}, {"_id": 0, "password": 0}
-    ).to_list(100)
-    return users
-
-@admin_router.get("/users/detailed")
-async def get_users_detailed(admin: dict = Depends(require_role([UserRole.ADMIN]))):
-    """Get all users with client counts, subscription status and monthly cost."""
-    users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(1000)
-    PLAN_PRICES = {"professional": 2499, "enterprise": 4999}
-    result = []
-    for user in users:
-        sub = await db.subscriptions.find_one({"user_id": user["id"], "status": "active"}, {"_id": 0})
-        client_count = await db.portfolio_clients.count_documents({"assigned_user_id": user["id"]})
-        if client_count == 0:
-            client_count = await db.portfolio_clients.count_documents({})
-        base_price = PLAN_PRICES.get(sub.get("plan_id", ""), 0) if sub else 0
-        extra_clients = max(0, client_count - 100)
-        monthly_cost = base_price + (extra_clients * 15)
-        result.append({
-            **user,
-            "subscription_plan": sub.get("plan_id") if sub else None,
-            "subscription_status": "active" if sub else "none",
-            "client_count": client_count,
-            "monthly_cost_dkk": monthly_cost,
-        })
-    return result
-
-@admin_router.get("/revenue")
-async def get_revenue_overview(admin: dict = Depends(require_role([UserRole.ADMIN]))):
-    """Get MRR and revenue breakdown."""
-    PLAN_PRICES = {"professional": 2499, "enterprise": 4999}
-    active_subs = await db.subscriptions.find({"status": "active"}, {"_id": 0}).to_list(1000)
-    mrr = sum(PLAN_PRICES.get(s.get("plan_id", ""), 0) for s in active_subs)
-    return {
-        "mrr_dkk": mrr,
-        "arr_dkk": mrr * 12,
-        "active_subscriptions": len(active_subs),
-        "professional_count": sum(1 for s in active_subs if s.get("plan_id") == "professional"),
-        "enterprise_count": sum(1 for s in active_subs if s.get("plan_id") == "enterprise"),
-    }
 api_router.include_router(admin_router)
 api_router.include_router(feedback_router)
 api_router.include_router(beta_router)
@@ -3191,4 +3104,39 @@ async def shutdown_db_client():
 
 # ==================== ENHANCED ADMIN ENDPOINTS ====================
 
+@admin_router.get("/users/detailed")
+async def get_users_detailed(admin: dict = Depends(require_role([UserRole.ADMIN]))):
+    """Get all users with client counts, subscription status and monthly cost."""
+    users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(1000)
+    PLAN_PRICES = {"professional": 2499, "enterprise": 4999}
+    result = []
+    for user in users:
+        sub = await db.subscriptions.find_one({"user_id": user["id"], "status": "active"}, {"_id": 0})
+        client_count = await db.portfolio_clients.count_documents({"assigned_user_id": user["id"]})
+        if client_count == 0:
+            client_count = await db.portfolio_clients.count_documents({})
+        base_price = PLAN_PRICES.get(sub.get("plan_id", ""), 0) if sub else 0
+        extra_clients = max(0, client_count - 100)
+        monthly_cost = base_price + (extra_clients * 15)
+        result.append({
+            **user,
+            "subscription_plan": sub.get("plan_id") if sub else None,
+            "subscription_status": "active" if sub else "none",
+            "client_count": client_count,
+            "monthly_cost_dkk": monthly_cost,
+        })
+    return result
 
+@admin_router.get("/revenue")
+async def get_revenue_overview(admin: dict = Depends(require_role([UserRole.ADMIN]))):
+    """Get MRR and revenue breakdown."""
+    PLAN_PRICES = {"professional": 2499, "enterprise": 4999}
+    active_subs = await db.subscriptions.find({"status": "active"}, {"_id": 0}).to_list(1000)
+    mrr = sum(PLAN_PRICES.get(s.get("plan_id", ""), 0) for s in active_subs)
+    return {
+        "mrr_dkk": mrr,
+        "arr_dkk": mrr * 12,
+        "active_subscriptions": len(active_subs),
+        "professional_count": sum(1 for s in active_subs if s.get("plan_id") == "professional"),
+        "enterprise_count": sum(1 for s in active_subs if s.get("plan_id") == "enterprise"),
+    }
