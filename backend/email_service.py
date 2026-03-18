@@ -53,7 +53,7 @@ def send_email_sync(to: str, subject: str, html_body: str, text_body: str = "") 
         return False
 
 
-async def notify_admin_new_registration(user_name: str, user_email: str, role: str):
+async def notify_admin_new_registration(user_name: str, user_email: str, role: str, firm_name: str = "", cvr_number: str = "", phone: str = ""):
     """Notify admin when a new accountant registers."""
     if not ADMIN_EMAIL:
         logger.info(f"[ADMIN NOTIFICATION] New registration: {user_name} ({user_email})")
@@ -71,6 +71,9 @@ async def notify_admin_new_registration(user_name: str, user_email: str, role: s
                 <tr><td style="padding: 8px; color: #666;">Name:</td><td style="padding: 8px; font-weight: bold;">{user_name}</td></tr>
                 <tr style="background: #f0f0f0;"><td style="padding: 8px; color: #666;">Email:</td><td style="padding: 8px; font-weight: bold;">{user_email}</td></tr>
                 <tr><td style="padding: 8px; color: #666;">Role:</td><td style="padding: 8px; font-weight: bold;">{role}</td></tr>
+                <tr style="background: #f0f0f0;"><td style="padding: 8px; color: #666;">Firm:</td><td style="padding: 8px; font-weight: bold;">{firm_name or "—"}</td></tr>
+                <tr><td style="padding: 8px; color: #666;">CVR:</td><td style="padding: 8px; font-weight: bold;">{cvr_number or "—"}</td></tr>
+                <tr style="background: #f0f0f0;"><td style="padding: 8px; color: #666;">Phone:</td><td style="padding: 8px; font-weight: bold;">{phone or "—"}</td></tr>
             </table>
             <a href="https://accountrix.norabot.ai/app/admin" 
                style="display: inline-block; background: #0F766E; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">

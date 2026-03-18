@@ -150,6 +150,9 @@ class UserCreate(BaseModel):
     password: str
     name: str
     role: str = UserRole.SME_USER
+    firm_name: Optional[str] = None
+    cvr_number: Optional[str] = None
+    phone: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -1023,6 +1026,9 @@ async def register(user_data: UserCreate, background_tasks: BackgroundTasks):
         "password": hash_password(user_data.password),
         "name": user_data.name,
         "role": user_data.role,
+        "firm_name": user_data.firm_name or "",
+        "cvr_number": user_data.cvr_number or "",
+        "phone": user_data.phone or "",
         "approval_status": approval_status,
         "created_at": now,
         "updated_at": now,
@@ -1037,7 +1043,7 @@ async def register(user_data: UserCreate, background_tasks: BackgroundTasks):
         details={"email": user_data.email, "role": user_data.role, "approval_status": approval_status}
     )
     background_tasks.add_task(send_welcome_email_real, user_data.email, user_data.name)
-    background_tasks.add_task(notify_admin_new_registration, user_data.name, user_data.email, user_data.role)
+    background_tasks.add_task(notify_admin_new_registration, user_data.name, user_data.email, user_data.role, user_data.firm_name or "", user_data.cvr_number or "", user_data.phone or "")
     return TokenResponse(
         access_token=token,
         user=UserResponse(

@@ -252,8 +252,9 @@ export default function AdminPanel() {
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Name</TableHead>
+                                            <TableHead>Firm / CVR</TableHead>
                                             <TableHead>Email</TableHead>
-                                            <TableHead>Role</TableHead>
+                                            <TableHead>Phone</TableHead>
                                             <TableHead>Registered</TableHead>
                                             <TableHead>Actions</TableHead>
                                         </TableRow>
@@ -269,10 +270,12 @@ export default function AdminPanel() {
                                                         <span className="font-medium text-sm">{user.name}</span>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
                                                 <TableCell>
-                                                    <Badge variant="outline">{user.role}</Badge>
+                                                    <p className="text-sm font-medium">{user.firm_name || '—'}</p>
+                                                    <p className="text-xs text-muted-foreground">CVR: {user.cvr_number || '—'}</p>
                                                 </TableCell>
+                                                <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
+                                                <TableCell className="text-sm text-muted-foreground">{user.phone || '—'}</TableCell>
                                                 <TableCell className="text-xs text-muted-foreground">{formatDate(user.created_at)}</TableCell>
                                                 <TableCell>
                                                     <div className="flex gap-2">
