@@ -277,7 +277,7 @@ async def user_economic_callback(request: Request, authorization: str = Header(N
         try:
             secret = os.environ.get("JWT_SECRET", "ai-accounting-copilot-secret-key-2024")
             payload = pyjwt.decode(authorization.split(" ")[1], secret, algorithms=["HS256"])
-            user_id = payload.get("user_id")
+            user_id = payload.get("sub") or payload.get("user_id")
             user_email = payload.get("email", "")
         except Exception:
             pass
@@ -336,7 +336,7 @@ async def user_economic_status(authorization: str = Header(None)):
     db = client[os.environ["DB_NAME"]]
     service = UserEconomicService(db)
 
-    conn = await service.get_connection(user["user_id"])
+    conn = await service.get_connection(user.get("sub") or user.get("user_id"))
     return {
         "connected": bool(conn and conn.get("status") == "active"),
         "connected_at": conn.get("connected_at") if conn else None,
@@ -356,7 +356,7 @@ async def user_sync_clients(authorization: str = Header(None)):
     service = UserEconomicService(db)
 
     try:
-        result = await service.sync_clients_to_portfolio(user["user_id"], user.get("email", ""))
+        result = await service.sync_clients_to_portfolio(user.get("sub") or user.get("user_id"), user.get("email", ""))
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -373,7 +373,7 @@ async def user_test_economic(authorization: str = Header(None)):
     client = AsyncIOMotorClient(os.environ["MONGO_URL"])
     db = client[os.environ["DB_NAME"]]
     service = UserEconomicService(db)
-    return await service.test_connection(user["user_id"])
+    return await service.test_connection(user.get("sub") or user.get("user_id"))
 
 
 @user_economic_router.delete("/disconnect")
@@ -387,4 +387,197 @@ async def user_disconnect_economic(authorization: str = Header(None)):
     client = AsyncIOMotorClient(os.environ["MONGO_URL"])
     db = client[os.environ["DB_NAME"]]
     service = UserEconomicService(db)
-    return await service.disconnect(user["user_id"])
+    return await service.disconnect(user.get("sub") or user.get("user_id"))
+
+
+# ── Push to E-conomic Routes ──────────────────────────────────────────────────
+
+from economic_push_service import EconomicPushService
+
+push_router = APIRouter(prefix="/api/push", tags=["Push to E-conomic"])
+
+@push_router.get("/test")
+async def test_push_permission(authorization: str = Header(None)):
+    """Test if user's e-conomic connection has push permissions."""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+    from user_economic_service import UserEconomicService
+
+    user = get_user_from_token(authorization)
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    
+    service = UserEconomicService(db)
+    grant_token = await service.get_grant_token(user.get("sub") or user.get("user_id"))
+    
+    if not grant_token:
+        raise HTTPException(status_code=400, detail="E-conomic not connected. Please connect in Settings.")
+    
+    push_service = EconomicPushService()
+    return await push_service.test_push_permission(grant_token)
+
+
+@push_router.get("/journals")
+async def get_journals(authorization: str = Header(None)):
+    """Get all available journals (kassekladder) from user's e-conomic."""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+    from user_economic_service import UserEconomicService
+
+    user = get_user_from_token(authorization)
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    
+    service = UserEconomicService(db)
+    grant_token = await service.get_grant_token(user.get("sub") or user.get("user_id"))
+    
+    if not grant_token:
+        raise HTTPException(status_code=400, detail="E-conomic not connected.")
+    
+    push_service = EconomicPushService()
+    journals = await push_service.get_journals(grant_token)
+    return {"journals": journals}
+
+
+@push_router.post("/invoice/{voucher_id}")
+async def push_invoice_to_economic(
+    voucher_id: str,
+    authorization: str = Header(None)
+):
+    """Push a single approved voucher to e-conomic kassekladde."""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+    from user_economic_service import UserEconomicService
+
+    user = get_user_from_token(authorization)
+    user_id = user.get("sub") or user.get("user_id")
+    
+    mongo_client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = mongo_client[os.environ["DB_NAME"]]
+    
+    # Get voucher from DB
+    voucher = await db.vouchers.find_one({"id": voucher_id}, {"_id": 0})
+    if not voucher:
+        raise HTTPException(status_code=404, detail="Voucher not found")
+    
+    if voucher.get("status") not in ("ready_to_push", "review"):
+        raise HTTPException(status_code=400, detail=f"Voucher status is {voucher.get('status')}, cannot push")
+    
+    # Get user's grant token
+    service = UserEconomicService(db)
+    grant_token = await service.get_grant_token(user_id)
+    
+    if not grant_token:
+        raise HTTPException(status_code=400, detail="E-conomic not connected. Please connect in Settings.")
+    
+    # Get document PDF if available
+    pdf_bytes = None
+    if voucher.get("document_id"):
+        doc = await db.documents.find_one({"id": voucher["document_id"]}, {"_id": 0})
+        if doc and doc.get("file_content"):
+            try:
+                pdf_bytes = base64.b64decode(doc["file_content"])
+            except Exception:
+                pass
+    
+    # Build invoice data from voucher
+    invoice_data = {
+        "supplier_name": voucher.get("supplier_name") or voucher.get("vendor_name", "Unknown"),
+        "invoice_number": voucher.get("invoice_number", ""),
+        "invoice_date": voucher.get("invoice_date", datetime.now().strftime("%Y-%m-%d")),
+        "due_date": voucher.get("due_date", ""),
+        "net_amount": voucher.get("net_amount", 0),
+        "vat_amount": voucher.get("vat_amount", 0),
+        "total_amount": voucher.get("total_amount", 0),
+        "account_code": voucher.get("account_code", "4000"),
+        "vat_code": voucher.get("vat_code", "I25"),
+        "currency": voucher.get("currency", "DKK"),
+        "description": voucher.get("description") or f"Faktura fra {voucher.get('supplier_name', 'leverandør')}",
+    }
+    
+    push_service = EconomicPushService()
+    result = await push_service.push_invoice_to_journal(grant_token, invoice_data, pdf_bytes)
+    
+    if result.get("success"):
+        # Update voucher status in DB
+        await db.vouchers.update_one(
+            {"id": voucher_id},
+            {"$set": {
+                "status": "pushed",
+                "pushed_at": datetime.now(timezone.utc).isoformat(),
+                "economic_voucher_number": result.get("voucher_number"),
+                "economic_journal_number": result.get("journal_number"),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }}
+        )
+    
+    return result
+
+
+@push_router.post("/bulk")
+async def push_multiple_invoices(
+    request: Request,
+    authorization: str = Header(None)
+):
+    """Push multiple approved vouchers to e-conomic in bulk."""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+    from user_economic_service import UserEconomicService
+
+    user = get_user_from_token(authorization)
+    user_id = user.get("sub") or user.get("user_id")
+    
+    body = await request.json()
+    voucher_ids = body.get("voucher_ids", [])
+    
+    if not voucher_ids:
+        raise HTTPException(status_code=400, detail="No voucher IDs provided")
+    
+    mongo_client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = mongo_client[os.environ["DB_NAME"]]
+    
+    service = UserEconomicService(db)
+    grant_token = await service.get_grant_token(user_id)
+    
+    if not grant_token:
+        raise HTTPException(status_code=400, detail="E-conomic not connected.")
+    
+    # Get all vouchers
+    vouchers = await db.vouchers.find(
+        {"id": {"$in": voucher_ids}}, {"_id": 0}
+    ).to_list(100)
+    
+    invoices = []
+    for v in vouchers:
+        invoices.append({
+            "voucher_db_id": v["id"],
+            "supplier_name": v.get("supplier_name") or v.get("vendor_name", "Unknown"),
+            "invoice_number": v.get("invoice_number", ""),
+            "invoice_date": v.get("invoice_date", datetime.now().strftime("%Y-%m-%d")),
+            "due_date": v.get("due_date", ""),
+            "net_amount": v.get("net_amount", 0),
+            "vat_amount": v.get("vat_amount", 0),
+            "total_amount": v.get("total_amount", 0),
+            "account_code": v.get("account_code", "4000"),
+            "currency": v.get("currency", "DKK"),
+            "description": f"Faktura fra {v.get('supplier_name', 'leverandør')}",
+        })
+    
+    push_service = EconomicPushService()
+    result = await push_service.push_multiple_invoices(grant_token, invoices)
+    
+    # Update pushed vouchers in DB
+    if result.get("results"):
+        for i, r in enumerate(result["results"]):
+            if r.get("success") and i < len(vouchers):
+                await db.vouchers.update_one(
+                    {"id": vouchers[i]["id"]},
+                    {"$set": {
+                        "status": "pushed",
+                        "pushed_at": datetime.now(timezone.utc).isoformat(),
+                        "economic_voucher_number": r.get("voucher_number"),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }}
+                )
+    
+    return result
